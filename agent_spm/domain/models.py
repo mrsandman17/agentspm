@@ -6,11 +6,39 @@ They use the SSPM vocabulary: Session, Event, Policy, Alert, PostureScore.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
+# Prefixes for paths that are commonly accessed outside cwd but are benign
+_OOD_BENIGN_PREFIXES: tuple[str, ...] = (
+    "/tmp/",
+    "/var/tmp/",
+)
+
+# Home-relative suffixes for benign paths (appended to expanduser("~"))
+_OOD_BENIGN_HOME_SUFFIXES: tuple[str, ...] = (
+    "/.config/",
+    "/.local/",
+    "/.cache/",
+    "/.npm/",
+    "/.cargo/",
+    "/.rustup/",
+    "/.pyenv/",
+    "/.nvm/",
+)
+
+
+def _is_benign_ood_path(path: str) -> bool:
+    """Return True if the path is a commonly-accessed benign location outside cwd."""
+    for prefix in _OOD_BENIGN_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    home = os.path.expanduser("~")
+    return any(path.startswith(home + suffix) for suffix in _OOD_BENIGN_HOME_SUFFIXES)
 
 
 class ActionType(Enum):
@@ -137,6 +165,8 @@ class RuleMatch:
             path = event.target.path
             cwd = session.cwd.rstrip("/")
             is_outside = not (path == cwd or path.startswith(cwd + "/"))
+            if is_outside and _is_benign_ood_path(path):
+                return False
             if is_outside != self.out_of_directory:
                 return False
         return True

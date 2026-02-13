@@ -64,13 +64,13 @@ class TestCalculatePosture:
         score = calculate_posture([_session()], [_alert(Severity.HIGH)])
         assert score.score == 90
 
-    def test_single_medium_alert_deducts_5(self) -> None:
+    def test_single_medium_alert_deducts_3(self) -> None:
         score = calculate_posture([_session()], [_alert(Severity.MEDIUM)])
-        assert score.score == 95
+        assert score.score == 97
 
-    def test_single_low_alert_deducts_2(self) -> None:
+    def test_single_low_alert_deducts_1(self) -> None:
         score = calculate_posture([_session()], [_alert(Severity.LOW)])
-        assert score.score == 98
+        assert score.score == 99
 
     def test_critical_deduction_capped_at_40(self) -> None:
         alerts = [_alert(Severity.CRITICAL) for _ in range(10)]
@@ -84,15 +84,17 @@ class TestCalculatePosture:
         # max 30, so 100 - 30 = 70
         assert score.score == 70
 
-    def test_medium_deduction_capped_at_20(self) -> None:
+    def test_medium_deduction_capped_at_15(self) -> None:
         alerts = [_alert(Severity.MEDIUM) for _ in range(10)]
         score = calculate_posture([_session()], alerts)
-        assert score.score == 80
+        # 10 * 3 = 30, capped at 15, so 100 - 15 = 85
+        assert score.score == 85
 
-    def test_low_deduction_capped_at_10(self) -> None:
+    def test_low_deduction_capped_at_5(self) -> None:
         alerts = [_alert(Severity.LOW) for _ in range(10)]
         score = calculate_posture([_session()], alerts)
-        assert score.score == 90
+        # 10 * 1 = 10, capped at 5, so 100 - 5 = 95
+        assert score.score == 95
 
     def test_combined_deductions_do_not_go_below_zero(self) -> None:
         alerts = (
@@ -102,7 +104,9 @@ class TestCalculatePosture:
             + [_alert(Severity.LOW) for _ in range(10)]
         )
         score = calculate_posture([_session()], alerts)
-        assert score.score == 0
+        # max deductions: 40 + 30 + 15 + 5 = 90, so score = 10
+        assert score.score == 10
+        assert score.score >= 0
 
     def test_total_sessions_count(self) -> None:
         sessions = [_session(session_id="s1"), _session(session_id="s2")]

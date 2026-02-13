@@ -7,7 +7,6 @@ from agent_spm.cli.events import events
 from agent_spm.cli.inventory import inventory
 from agent_spm.cli.posture import posture
 from agent_spm.cli.report import report
-from agent_spm.cli.scan import scan
 from agent_spm.cli.sessions import sessions
 
 
@@ -17,10 +16,9 @@ def cli() -> None:
     """Agent Security Posture Manager — SSPM applied to AI agents."""
 
 
-cli.add_command(scan)
+cli.add_command(posture)
+cli.add_command(sessions)
+cli.add_command(alerts)
 cli.add_command(inventory)
 cli.add_command(events)
-cli.add_command(alerts)
-cli.add_command(posture)
 cli.add_command(report)
-cli.add_command(sessions)

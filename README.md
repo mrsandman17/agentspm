@@ -2,91 +2,91 @@
 
 **Agent Security Posture Manager** — SSPM applied to AI agents.
 
-Observe what your AI agents did, evaluate against security policies, and surface risk. Think security camera, not security guard.
+> Your AI agent just ran 200 commands. Do you know what happened?
 
-## The Problem
+`agent-spm` reads Claude Code session logs, evaluates them against security policies, and scores your posture. Passive observer only — it never modifies agent behavior.
 
-AI agents run with broad permissions and zero visibility. A Claude Code session might read sensitive config files, execute destructive shell commands, or force-push to protected branches — and you'd never know unless something broke. `agent-spm` closes that gap.
+## Who This Is For
 
-## How It Works
+Developers using Claude Code or other AI agents who want to **move fast without losing visibility**. Not a security team tool — no blocking, no complex policy language. Just: "here's what your agent did, here's what looks risky."
 
-`agent-spm` applies [SSPM](https://www.gartner.com/en/information-technology/glossary/sspm) (SaaS Security Posture Management) concepts to AI agents:
-
-| SSPM | agent-spm |
-|---|---|
-| Users | Agent sessions |
-| SaaS Applications | Tools, MCPs, file systems |
-| Permissions | Agent scopes (what they can do) |
-| Security Policies | What agents *should* do |
-| Posture Score | Drift between can and should |
-| Misconfiguration Alert | Policy violation |
-
-1. **Scan** — parse Claude Code JSONL session logs into normalized events
-2. **Evaluate** — check every event against YAML security policies
-3. **Score** — calculate a 0–100 posture score with letter grade
-4. **Report** — surface violations, elevated events, and risk trends
+The real risk isn't individual commands — it's developers granting wide permissions once ("yes to all") without realizing how much the agent is actually doing.
 
 ## Quick Start
 
 ```bash
 pip install agent-spm
 
-# Scan your recent Claude Code sessions (reads ~/.claude/projects/)
-agent-spm scan
-
-# Security posture dashboard
+# Posture score for all recent sessions
 agent-spm posture
 
-# Browse what tools were used
-agent-spm inventory
+# Sessions by project, worst-grade first
+agent-spm sessions
 
-# Event timeline
-agent-spm events --elevated   # show only elevated/risky events
-
-# Policy violations
+# Aggregated alert summary
 agent-spm alerts
 
-# Generate a Markdown report
+# Raw event timeline
+agent-spm events --elevated
+
+# Export a Markdown report
 agent-spm report --output report.md
 ```
 
 ## Commands
 
-### `agent-spm scan`
-Parse Claude Code session logs from `~/.claude/projects/` into a local SQLite database.
+Commands are ordered from high-level to low-level:
+
+### `agent-spm posture`
+The headline number — security posture score (0–100) and grade with alert breakdown.
+
+### `agent-spm sessions`
+Sessions grouped by project directory, worst-grade first by default.
 
 ```
 Options:
-  --path DIR     Override default ~/.claude/projects/ directory
-  --limit N      Maximum number of sessions to scan
+  --sort [grade|date|name]   Sort order (default: grade, worst first)
+  --limit N                  Maximum sessions to scan
+  [SESSION_ID]               Drill into a specific session
 ```
 
-### `agent-spm posture`
-Security posture dashboard — score, grade, and alert breakdown.
+### `agent-spm alerts`
+Policy violations, aggregated by rule by default.
 
 ```
-╭──────────────────────── Security Posture ──────────────────────────╮
-│ 70/100  Grade: C                                                    │
-│ Sessions: 5  Events: 84  Alerts: 12  Elevated: 23%  Policies: default │
-╰─────────────────────────────────────────────────────────────────────╯
- Severity   Alerts  Deduction  Cap
- CRITICAL        1        -20   40
- HIGH            5        -10   30
- MEDIUM          6          0   20
- LOW             0          0   10
+Options:
+  --detail        Show individual violations instead of aggregated summary
+  --severity SEV  Filter by minimum severity (low/medium/high/critical)
+  --policy PATH   YAML policy file or directory
+  --limit N       Maximum sessions to scan
+
+Sub-commands:
+  rules           List all rules with source and status
+  add             Interactive wizard to create a custom rule
+  remove NAME     Delete a custom rule
+  enable NAME     Enable a rule (works on default rules too)
+  disable NAME    Disable a rule without deleting it (works on default rules too)
+  test            Dry-run rules against recent sessions
+```
+
+**Disabling a noisy default rule:**
+```bash
+agent-spm alerts disable out-of-directory-access
+agent-spm alerts rules   # shows "disabled (override)"
+agent-spm alerts enable out-of-directory-access
+```
+
+**Adding a custom rule:**
+```bash
+agent-spm alerts add
+# Shows an example rule, then walks you through each field
 ```
 
 ### `agent-spm inventory`
-Browse tool usage across sessions — what tools ran, how often, in how many sessions.
-
-```
-Options:
-  --path DIR     Override session source directory
-  --limit N      Maximum number of sessions to include
-```
+Tool usage aggregation — what tools ran, how often, how many sessions.
 
 ### `agent-spm events`
-Event timeline — every agent action, with filtering.
+Raw event timeline with filtering.
 
 ```
 Options:
@@ -96,103 +96,89 @@ Options:
   --limit N       Limit number of events shown
 ```
 
-### `agent-spm alerts`
-Policy violations sorted by severity.
-
-```
-Options:
-  --policy PATH   YAML policy file or directory
-  --severity SEV  Filter by severity (low, medium, high, critical)
-  --limit N       Limit number of alerts shown
-```
-
 ### `agent-spm report`
-Generate a structured Markdown security report.
+Export a Markdown security report.
 
 ```
 Options:
   --output PATH   Write to file instead of printing to console
-  --top N         Maximum violations/events to include (default: 10)
   --policy PATH   YAML policy file or directory
 ```
 
-## Security Policies
+## Default Security Rules
 
-Policies are YAML files. The built-in default policy covers common risks:
+The built-in policy catches common high-risk patterns:
 
 | Rule | Severity | What It Catches |
 |---|---|---|
-| `elevated-shell-command` | HIGH | Shell commands run with elevated flag |
-| `sensitive-file-access` | HIGH | Reads to `.env`, `credentials`, SSH keys |
-| `force-push` | CRITICAL | `git push --force` to any remote |
-| `curl-pipe-bash` | CRITICAL | `curl ... \| bash` execution |
-| `destructive-remove` | HIGH | `rm -rf` style commands |
+| `force-push` | CRITICAL | `git push --force` — permanently destroys history |
+| `curl-pipe-bash` | CRITICAL | `curl ... \| bash` — remote code execution |
+| `sensitive-file-access` | HIGH | Reads `.env`, credentials, SSH keys |
+| `elevated-shell-command` | MEDIUM | `sudo`, `chmod 777`, `chown` |
+| `destructive-remove` | MEDIUM | `rm -rf` — risk of data loss |
+| `out-of-directory-access` | LOW | File access outside the session working directory |
 
-### Writing a Custom Policy
+Any rule can be disabled if it's too noisy for your workflow (`agent-spm alerts disable <name>`).
+
+## Posture Scoring
+
+Score starts at 100. Deductions per alert are capped per severity band:
+
+| Severity | Per Alert | Cap |
+|---|---|---|
+| CRITICAL | −20 | max −40 |
+| HIGH | −10 | max −30 |
+| MEDIUM | −3 | max −15 |
+| LOW | −1 | max −5 |
+
+Grades: **A** (90–100) · **B** (75–89) · **C** (60–74) · **D** (45–59) · **F** (0–44)
+
+Normal development sessions (file reads/writes, shell commands) typically score B or A. Only sessions with force-pushes, curl-pipe-bash, or sensitive file access cause significant score drops.
+
+## Custom Policies
 
 ```yaml
 name: my-policy
 description: Custom rules for my team
 
 rules:
-  - name: no-prod-writes
-    description: "Agent must not write to production config"
+  - name: no-prod-deploys
+    description: "Flag deployment commands to production"
     severity: critical
     match:
-      action_types: [file_write]
-      path_pattern: "/etc/|/prod/"
+      action_types: [shell_exec]
+      command_pattern: "deploy.*prod"
 
-  - name: no-network-calls
-    description: "Agent must not make outbound network requests"
+  - name: no-secrets-write
+    description: "Agent must not write to secrets directory"
     severity: high
     match:
-      action_types: [shell_exec]
-      command_pattern: "curl|wget|fetch"
+      action_types: [file_write]
+      path_pattern: "secrets/"
 ```
 
-Run with your policy:
-```bash
-agent-spm alerts --policy my-policy.yaml
-agent-spm posture --policy ./policies/
-```
-
-### Match Conditions
-
-All conditions in `match:` must be true (AND logic):
+### Match Conditions (AND logic)
 
 | Field | Type | Description |
 |---|---|---|
 | `action_types` | list | `tool_call`, `file_read`, `file_write`, `shell_exec` |
-| `elevated` | bool | Whether the event had elevated permissions |
-| `command_pattern` | regex | Matched against shell command |
-| `path_pattern` | regex | Matched against file path |
-
-## Posture Scoring
-
-Score starts at 100. Deductions are capped per severity band:
-
-| Severity | Deduction | Cap |
-|---|---|---|
-| CRITICAL | −20 per alert | max −40 |
-| HIGH | −10 per alert | max −30 |
-| MEDIUM | −5 per alert | max −20 |
-| LOW | −2 per alert | max −10 |
-
-Grades: **A** (90–100) · **B** (75–89) · **C** (60–74) · **D** (45–59) · **F** (0–44)
+| `elevated` | bool | Only match elevated/risky events |
+| `command_pattern` | regex | Matched against the shell command |
+| `path_pattern` | regex | Matched against the file path |
+| `out_of_directory` | bool | File outside session working directory |
 
 ## Architecture
 
 ```
 agent_spm/
-├── adapters/        Claude Code JSONL parser (swap in other agents here)
+├── adapters/        Claude Code JSONL parser
 ├── domain/          Core models: Session, Event, Policy, Alert, PostureScore
-├── engine/          Business logic: evaluator, posture scoring, report generation
-├── storage/         SQLite repository (only layer touching the database)
+├── engine/          Business logic: evaluator, posture, report
 ├── policies/        YAML loader + built-in default policy
 └── cli/             Click commands + Rich TUI
 ```
 
-Key boundary: `domain/` and `engine/` have **zero** dependencies on storage, CLI, or any framework. The repository pattern means swapping SQLite for Postgres only touches `storage/`.
+`domain/` and `engine/` have **zero** dependencies on storage, CLI, or any framework.
 
 ## Development
 
@@ -203,16 +189,8 @@ pip install -e ".[dev]"
 
 pytest                        # run all tests
 pytest --cov=agent_spm        # with coverage
-ruff check . && ruff format . # lint + format
-mypy agent_spm/               # type check
+bash scripts/check.sh         # full pre-push check (lint + format + types + tests)
 ```
-
-### Contributing
-
-- TDD: write tests first (red → green → refactor)
-- DDD: use the SSPM vocabulary — `Session`, `Event`, `Policy`, `Alert`, `PostureScore`
-- Each PR is a shippable increment
-- Conventional commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`
 
 ## License
 
