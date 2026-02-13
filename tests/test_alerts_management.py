@@ -100,7 +100,7 @@ class TestAlertsRules:
         result = runner.invoke(alerts, ["rules"])
         assert result.exit_code == 0
         assert "elevated-shell-command" in result.output
-        assert "out-of-directory-access" in result.output
+        assert "force-push" in result.output
 
     def test_shows_default_source(self) -> None:
         runner = CliRunner()
@@ -345,12 +345,12 @@ class TestDisableDefaultRules:
         with patch(
             "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
         ):
-            result = runner.invoke(alerts, ["disable", "out-of-directory-access"])
+            result = runner.invoke(alerts, ["disable", "force-push"])
         assert result.exit_code == 0
         assert "disabled" in result.output.lower()
         # Verify override was written to custom.yml
         rules = list_custom_rules(path=custom_path)
-        assert any(r["name"] == "out-of-directory-access" and r["enabled"] is False for r in rules)
+        assert any(r["name"] == "force-push" and r["enabled"] is False for r in rules)
 
     def test_enable_default_rule_returns_success(self, tmp_path: Path) -> None:
         custom_path = tmp_path / "custom.yml"
@@ -358,7 +358,7 @@ class TestDisableDefaultRules:
         with patch(
             "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
         ):
-            result = runner.invoke(alerts, ["enable", "out-of-directory-access"])
+            result = runner.invoke(alerts, ["enable", "force-push"])
         assert result.exit_code == 0
         assert "enabled" in result.output.lower()
 
@@ -378,16 +378,16 @@ class TestDisableDefaultRules:
 
         # Write override to a file inside tmp_path (which becomes CUSTOM_POLICY_DIR)
         custom_path = tmp_path / "custom.yml"
-        _sre("out-of-directory-access", enabled=False, path=custom_path)
+        _sre("force-push", enabled=False, path=custom_path)
 
         with patch("agent_spm.policies.loader.CUSTOM_POLICY_DIR", tmp_path):
             policies = load_all_policies()
 
         # The default version should be gone; only the disabled override remains
         all_rules = [r for p in policies for r in p.rules]
-        ood_rules = [r for r in all_rules if r.name == "out-of-directory-access"]
-        assert len(ood_rules) == 1
-        assert ood_rules[0].enabled is False
+        fp_rules = [r for r in all_rules if r.name == "force-push"]
+        assert len(fp_rules) == 1
+        assert fp_rules[0].enabled is False
 
 
 class TestAlertsTest:

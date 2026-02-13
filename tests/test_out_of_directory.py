@@ -178,13 +178,7 @@ class TestOutOfDirectoryIntegration:
         alerts = evaluate([session], [self._ood_policy()])
         assert len(alerts) == 0
 
-    def test_default_policy_includes_ood_rule(self) -> None:
+    def test_default_policy_excludes_ood_rule(self) -> None:
+        """out-of-directory-access is not a default rule (too noisy for regular dev flow)."""
         names = [r.name for r in DEFAULT_POLICY.rules]
-        assert "out-of-directory-access" in names
-
-    def test_default_policy_ood_rule_fires(self) -> None:
-        event = _file_event("/etc/hosts")
-        session = _session(cwd="/home/user/project", events=[event])
-        alerts = evaluate([session], [DEFAULT_POLICY])
-        ood_alerts = [a for a in alerts if a.rule_name == "out-of-directory-access"]
-        assert len(ood_alerts) == 1
+        assert "out-of-directory-access" not in names

@@ -14,7 +14,7 @@ DEFAULT_POLICY = Policy(
     rules=[
         PolicyRule(
             name="elevated-shell-command",
-            description=("Shell command flagged as elevated (sudo, chmod 777, chown)"),
+            description="Shell command flagged as elevated (sudo, chmod 777, chown)",
             severity=Severity.MEDIUM,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
@@ -35,38 +35,20 @@ DEFAULT_POLICY = Policy(
         ),
         PolicyRule(
             name="force-push",
-            description="Force push to git remote — can permanently destroy history",
-            severity=Severity.CRITICAL,
+            description="Force push to git remote — can permanently destroy remote history",
+            severity=Severity.HIGH,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 command_pattern=r"git push .*(--force|-f\b)",
             ),
         ),
         PolicyRule(
-            name="curl-pipe-bash",
-            description="Download and execute arbitrary code via curl|bash or wget|bash",
-            severity=Severity.CRITICAL,
-            match=RuleMatch(
-                action_types=[ActionType.SHELL_EXEC],
-                command_pattern=r"\b(curl|wget)\b.*\|\s*bash\b",
-            ),
-        ),
-        PolicyRule(
             name="destructive-remove",
             description="Recursive force remove (rm -rf) — risk of permanent data loss",
-            severity=Severity.MEDIUM,
+            severity=Severity.HIGH,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 command_pattern=r"\brm\s+-rf\b",
-            ),
-        ),
-        PolicyRule(
-            name="out-of-directory-access",
-            description="Agent accessed files outside its working directory",
-            severity=Severity.LOW,
-            match=RuleMatch(
-                action_types=[ActionType.FILE_READ, ActionType.FILE_WRITE],
-                out_of_directory=True,
             ),
         ),
     ],
