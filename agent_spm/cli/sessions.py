@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from agent_spm.adapters.claude_code import scan_sessions
-from agent_spm.domain.models import Policy, Session
+from agent_spm.domain.models import Policy, PostureScore, Session
 from agent_spm.engine.evaluator import evaluate
 from agent_spm.engine.inventory import build_inventory
 from agent_spm.engine.posture import calculate_posture
@@ -51,11 +51,19 @@ _ACTION_COLORS = {
     default=None,
     help="Maximum number of sessions to scan.",
 )
+@click.option(
+    "--sort",
+    type=click.Choice(["grade", "date", "name"]),
+    default="grade",
+    show_default=True,
+    help="Sort order: grade (worst first), date (most recent first), name (alphabetical).",
+)
 def sessions(
     session_id: str | None,
     path: Path | None,
     policy_path: Path | None,
     limit: int | None,
+    sort: str,
 ) -> None:
     """Show agent sessions grouped by working directory, or drill into a session."""
     all_sessions = scan_sessions(base_dir=path, limit=limit)
@@ -69,10 +77,15 @@ def sessions(
     if session_id is not None:
         _render_session_detail(session_id, all_sessions, policies)
     else:
-        _render_directory_overview(all_sessions, policies)
+        _render_directory_overview(all_sessions, policies, sort=sort)
 
 
-def _render_directory_overview(all_sessions: list[Session], policies: list[Policy]) -> None:
+_GRADE_ORDER = {"F": 0, "D": 1, "C": 2, "B": 3, "A": 4}
+
+
+def _render_directory_overview(
+    all_sessions: list[Session], policies: list[Policy], sort: str = "grade"
+) -> None:
     groups = _group_by_directory(all_sessions)
     total_rules = sum(len(p.rules) for p in policies)
 
@@ -83,13 +96,27 @@ def _render_directory_overview(all_sessions: list[Session], policies: list[Polic
         f"{total_rules} policy rule(s) loaded"
     )
 
-    lines: list[str] = []
+    # Pre-compute posture for each directory so we can sort by it
     _epoch = datetime.min.replace(tzinfo=UTC)
-    for dir_path, dir_sessions in sorted(
-        groups.items(), key=lambda kv: _last_activity(kv[1]) or _epoch
-    ):
-        dir_alerts = evaluate(dir_sessions, policies)
-        ps = calculate_posture(dir_sessions, dir_alerts)
+    dir_data: list[tuple[str, list[Session], PostureScore]] = []
+    for dir_path, dir_sessions in groups.items():
+        _dir_alerts = evaluate(dir_sessions, policies)
+        _ps = calculate_posture(dir_sessions, _dir_alerts)
+        dir_data.append((dir_path, dir_sessions, _ps))
+
+    if sort == "grade":
+        # Worst first (F before A), tie-break by alert count descending
+        dir_data.sort(key=lambda x: (_GRADE_ORDER.get(x[2].grade, 99), -x[2].total_alerts))
+    elif sort == "date":
+        dir_data.sort(
+            key=lambda x: _last_activity(x[1]) or _epoch,
+            reverse=True,
+        )
+    else:  # name
+        dir_data.sort(key=lambda x: x[0])
+
+    lines: list[str] = []
+    for dir_path, dir_sessions, ps in dir_data:
         inventory = build_inventory(dir_sessions)
 
         last_dt = _last_activity(dir_sessions)

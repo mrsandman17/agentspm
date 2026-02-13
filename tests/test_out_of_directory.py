@@ -101,6 +101,50 @@ class TestOutOfDirectoryMatch:
         assert _RULE.matches(event, session=session) is True
 
 
+class TestBenignOodPaths:
+    """Commonly-accessed paths outside cwd that should not trigger the rule."""
+
+    def test_tmp_path_is_not_flagged(self) -> None:
+        event = _file_event("/tmp/build/output.txt")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is False
+
+    def test_var_tmp_path_is_not_flagged(self) -> None:
+        event = _file_event("/var/tmp/cache.json")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is False
+
+    def test_home_config_is_not_flagged(self) -> None:
+        import os
+
+        home = os.path.expanduser("~")
+        event = _file_event(home + "/.config/nvim/init.lua")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is False
+
+    def test_home_cache_is_not_flagged(self) -> None:
+        import os
+
+        home = os.path.expanduser("~")
+        event = _file_event(home + "/.cache/pip/packages.json")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is False
+
+    def test_cargo_toolchain_is_not_flagged(self) -> None:
+        import os
+
+        home = os.path.expanduser("~")
+        event = _file_event(home + "/.cargo/registry/src/foo.rs")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is False
+
+    def test_etc_is_still_flagged(self) -> None:
+        """Non-benign outside paths should still fire."""
+        event = _file_event("/etc/passwd")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is True
+
+
 class TestOutOfDirectoryIntegration:
     """Integration: out-of-directory rule fires through the evaluator."""
 

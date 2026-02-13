@@ -57,18 +57,39 @@ def clear_custom_rules(path: Path = CUSTOM_POLICY_PATH) -> None:
 
 
 def set_rule_enabled(name: str, enabled: bool, path: Path = CUSTOM_POLICY_PATH) -> bool:
-    """Toggle enabled/disabled on a rule by name. Returns True if found."""
+    """Toggle enabled/disabled on a rule by name. Returns True if found.
+
+    For ``enabled=False``: also searches built-in default rules and clones
+    the rule to custom.yml with ``enabled: false`` if found there.
+    For ``enabled=True``: updates the custom override if present; returns
+    True without writing if the rule is a built-in default (already enabled).
+    """
+    # Check custom.yml first
     data = _load_custom_yaml(path)
-    if not data:
+    if data:
+        for rule in data.get("rules", []):
+            if rule.get("name") == name:
+                rule["enabled"] = enabled
+                _save_custom_yaml(data, path)
+                return True
+
+    # Not in custom.yml — check default rules
+    from agent_spm.policies.defaults import get_default_rule
+
+    default_rule = get_default_rule(name)
+    if default_rule is None:
         return False
 
-    for rule in data.get("rules", []):
-        if rule.get("name") == name:
-            rule["enabled"] = enabled
-            _save_custom_yaml(data, path)
-            return True
+    if not enabled:
+        # Clone the default rule to custom.yml with enabled=False
+        from dataclasses import replace as _replace
 
-    return False
+        disabled_rule = _replace(default_rule, enabled=False)
+        save_custom_rule(disabled_rule, path=path)
+        return True
+    else:
+        # Default rule exists and is already enabled — no action needed
+        return True
 
 
 def list_custom_rules(path: Path = CUSTOM_POLICY_PATH) -> list[dict[str, Any]]:

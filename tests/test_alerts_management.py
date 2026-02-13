@@ -60,12 +60,27 @@ def _rule(name: str = "test-rule", severity: Severity = Severity.HIGH) -> Policy
 
 
 class TestAlertsDefaultBehavior:
-    """alerts (no subcommand) still lists violations."""
+    """alerts (no subcommand) shows aggregated summary by default."""
 
     def test_lists_violations(self) -> None:
         runner = CliRunner()
         with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
             result = runner.invoke(alerts, [])
+        assert result.exit_code == 0
+        assert "Alerts" in result.output
+
+    def test_aggregated_by_default(self) -> None:
+        runner = CliRunner()
+        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
+            result = runner.invoke(alerts, [])
+        assert result.exit_code == 0
+        # Aggregated view shows rule names and counts, not individual session IDs
+        assert "Count" in result.output or "--detail" in result.output
+
+    def test_detail_flag_shows_individual_violations(self) -> None:
+        runner = CliRunner()
+        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
+            result = runner.invoke(alerts, ["--detail"])
         assert result.exit_code == 0
         assert "Alerts" in result.output
 
@@ -319,6 +334,60 @@ class TestAlertsEnableDisable:
         ):
             result = runner.invoke(alerts, ["enable", "nonexistent"])
         assert result.exit_code != 0
+
+
+class TestDisableDefaultRules:
+    """Disabling default rules creates a custom override."""
+
+    def test_disable_default_rule_creates_override(self, tmp_path: Path) -> None:
+        custom_path = tmp_path / "custom.yml"
+        runner = CliRunner()
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
+            result = runner.invoke(alerts, ["disable", "out-of-directory-access"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+        # Verify override was written to custom.yml
+        rules = list_custom_rules(path=custom_path)
+        assert any(r["name"] == "out-of-directory-access" and r["enabled"] is False for r in rules)
+
+    def test_enable_default_rule_returns_success(self, tmp_path: Path) -> None:
+        custom_path = tmp_path / "custom.yml"
+        runner = CliRunner()
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
+            result = runner.invoke(alerts, ["enable", "out-of-directory-access"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+    def test_disable_unknown_rule_fails(self, tmp_path: Path) -> None:
+        custom_path = tmp_path / "custom.yml"
+        runner = CliRunner()
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
+            result = runner.invoke(alerts, ["disable", "nonexistent-rule-xyz"])
+        assert result.exit_code != 0
+
+    def test_load_all_policies_applies_override(self, tmp_path: Path) -> None:
+        """Disabled default rule should not fire after override."""
+        from agent_spm.policies.loader import load_all_policies
+        from agent_spm.policies.writer import set_rule_enabled as _sre
+
+        # Write override to a file inside tmp_path (which becomes CUSTOM_POLICY_DIR)
+        custom_path = tmp_path / "custom.yml"
+        _sre("out-of-directory-access", enabled=False, path=custom_path)
+
+        with patch("agent_spm.policies.loader.CUSTOM_POLICY_DIR", tmp_path):
+            policies = load_all_policies()
+
+        # The default version should be gone; only the disabled override remains
+        all_rules = [r for p in policies for r in p.rules]
+        ood_rules = [r for r in all_rules if r.name == "out-of-directory-access"]
+        assert len(ood_rules) == 1
+        assert ood_rules[0].enabled is False
 
 
 class TestAlertsTest:

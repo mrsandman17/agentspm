@@ -7,8 +7,8 @@ from dominating the score.
 Deduction schedule:
   CRITICAL — 20 pts each, max 40
   HIGH     — 10 pts each, max 30
-  MEDIUM   —  5 pts each, max 20
-  LOW      —  2 pts each, max 10
+  MEDIUM   —  3 pts each, max 15
+  LOW      —  1 pt  each, max  5
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from agent_spm.domain.models import Alert, PostureScore, Session, Severity
 _DEDUCTIONS: dict[Severity, tuple[int, int]] = {
     Severity.CRITICAL: (20, 40),
     Severity.HIGH: (10, 30),
-    Severity.MEDIUM: (5, 20),
-    Severity.LOW: (2, 10),
+    Severity.MEDIUM: (3, 15),
+    Severity.LOW: (1, 5),
 }
 
 

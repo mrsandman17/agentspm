@@ -43,8 +43,6 @@ _ELEVATED_COMMAND_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\brm\s+-rf\b"),
     re.compile(r"\bgit\s+push\s+--force\b"),
     re.compile(r"\bgit\s+push\s+-f\b"),
-    re.compile(r"\bgit\s+reset\s+--hard\b"),
-    re.compile(r"\bgit\s+branch\s+-D\b"),
     re.compile(r"\bcurl\b.*\|\s*bash\b"),
     re.compile(r"\bwget\b.*\|\s*bash\b"),
 ]

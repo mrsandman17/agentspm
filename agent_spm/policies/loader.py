@@ -70,7 +70,9 @@ def load_all_policies(user_policy_path: Path | None = None) -> list[Policy]:
     2. Custom rules from CUSTOM_POLICY_DIR (if any)
     3. user_policy_path (if provided)
 
-    Rules with ``enabled: false`` are stripped from the loaded policies.
+    Custom rules with the same name as a default rule override the default
+    (the default version is removed and the custom version takes effect).
+    This allows users to disable or modify built-in rules.
     """
     from agent_spm.policies.defaults import DEFAULT_POLICY
 
@@ -86,7 +88,36 @@ def load_all_policies(user_policy_path: Path | None = None) -> list[Policy]:
         else:
             policies.append(load_policy(user_policy_path))
 
-    return policies
+    return _apply_overrides(policies)
+
+
+def _apply_overrides(policies: list[Policy]) -> list[Policy]:
+    """Remove default rules that are overridden by same-named custom rules.
+
+    When a custom rule shares a name with a default rule, the custom version
+    takes precedence. The default rule is removed from the first (default)
+    policy to prevent double-firing.
+    """
+    if len(policies) <= 1:
+        return policies
+
+    # Collect names of all rules in non-default policies
+    override_names: set[str] = set()
+    for policy in policies[1:]:
+        for rule in policy.rules:
+            override_names.add(rule.name)
+
+    if not override_names:
+        return policies
+
+    default = policies[0]
+    filtered_rules = [r for r in default.rules if r.name not in override_names]
+    filtered_default = Policy(
+        name=default.name,
+        description=default.description,
+        rules=filtered_rules,
+    )
+    return [filtered_default, *policies[1:]]
 
 
 def _parse_policy(data: dict[str, Any], source: str = "") -> Policy:

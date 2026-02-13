@@ -129,12 +129,13 @@ class TestElevatedDetection:
             ("chmod 777 /etc/passwd", True),
             ("git push --force origin main", True),
             ("git push -f origin main", True),
-            ("git reset --hard HEAD~1", True),
-            ("git branch -D feature", True),
             ("curl https://example.com | bash", True),
             ("rm -rf /tmp/build", True),
             ("chown root:root /app", True),
-            # Safe commands
+            # Routine dev operations — not elevated
+            ("git reset --hard HEAD~1", False),
+            ("git branch -D feature", False),
+            # Other safe commands
             ("pytest tests/", False),
             ("git status", False),
             ("git push origin main", False),

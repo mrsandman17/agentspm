@@ -1,7 +1,6 @@
 """Report generation engine.
 
-Produces a structured Report from sessions, alerts, and policies,
-and renders it as Markdown for file output or console display.
+Produces a Markdown security posture report from sessions, alerts, and policies.
 """
 
 from __future__ import annotations
@@ -44,6 +43,16 @@ def generate_report(
         top_alerts=sorted_alerts[:top_n],
         elevated_events=all_elevated[:top_n],
     )
+
+
+def generate_markdown_report(
+    sessions: list[Session],
+    alerts: list[Alert],
+    policies: list[Policy],
+) -> str:
+    """Generate a Markdown report directly from sessions, alerts, and policies."""
+    report = generate_report(sessions, alerts, policies)
+    return render_markdown(report)
 
 
 def render_markdown(report: Report) -> str:
@@ -89,17 +98,12 @@ def render_markdown(report: Report) -> str:
     if not report.top_alerts:
         lines.append("No policy violations detected.")
     else:
-        lines.append("| Severity | Rule | Target | Session |")
-        lines.append("|---|---|---|---|")
+        lines.append("| Severity | Rule | Target |")
+        lines.append("|---|---|---|")
         for alert in report.top_alerts:
             t = alert.event.target
             target = t.command or t.path or t.tool_name
-            lines.append(
-                f"| {alert.severity.value.upper()} "
-                f"| {alert.rule_name} "
-                f"| `{target}` "
-                f"| {alert.event.session_id} |"
-            )
+            lines.append(f"| {alert.severity.value.upper()} | {alert.rule_name} | `{target}` |")
     lines.append("")
 
     # Elevated events (only if any)

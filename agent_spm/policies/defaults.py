@@ -14,11 +14,8 @@ DEFAULT_POLICY = Policy(
     rules=[
         PolicyRule(
             name="elevated-shell-command",
-            description=(
-                "Shell command flagged as elevated (sudo, rm -rf, chmod 777, "
-                "git reset --hard, git branch -D, chown)"
-            ),
-            severity=Severity.HIGH,
+            description=("Shell command flagged as elevated (sudo, chmod 777, chown)"),
+            severity=Severity.MEDIUM,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 elevated=True,
@@ -57,7 +54,7 @@ DEFAULT_POLICY = Policy(
         PolicyRule(
             name="destructive-remove",
             description="Recursive force remove (rm -rf) — risk of permanent data loss",
-            severity=Severity.HIGH,
+            severity=Severity.MEDIUM,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 command_pattern=r"\brm\s+-rf\b",
@@ -66,7 +63,7 @@ DEFAULT_POLICY = Policy(
         PolicyRule(
             name="out-of-directory-access",
             description="Agent accessed files outside its working directory",
-            severity=Severity.MEDIUM,
+            severity=Severity.LOW,
             match=RuleMatch(
                 action_types=[ActionType.FILE_READ, ActionType.FILE_WRITE],
                 out_of_directory=True,
@@ -74,3 +71,11 @@ DEFAULT_POLICY = Policy(
         ),
     ],
 )
+
+
+def get_default_rule(name: str) -> PolicyRule | None:
+    """Return the default PolicyRule with the given name, or None if not found."""
+    for rule in DEFAULT_POLICY.rules:
+        if rule.name == name:
+            return rule
+    return None
