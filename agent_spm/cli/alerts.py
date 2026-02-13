@@ -218,12 +218,16 @@ def add_cmd() -> None:
                 action_types.append(ActionType(part))
             except ValueError:
                 console.print(f"[red]Unknown action type: {part}[/red]")
-                raise SystemExit(1)
+                raise SystemExit(1) from None
 
-    elevated_input = click.prompt(
-        "Match elevated events only? (yes/no/any)",
-        default="any",
-    ).strip().lower()
+    elevated_input = (
+        click.prompt(
+            "Match elevated events only? (yes/no/any)",
+            default="any",
+        )
+        .strip()
+        .lower()
+    )
     elevated: bool | None = None
     if elevated_input == "yes":
         elevated = True
@@ -236,7 +240,7 @@ def add_cmd() -> None:
             re.compile(command_pattern)
         except re.error as e:
             console.print(f"[red]Invalid regex: {e}[/red]")
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
     path_pattern = click.prompt("Path regex pattern (empty to skip)", default="") or None
     if path_pattern:
@@ -244,7 +248,7 @@ def add_cmd() -> None:
             re.compile(path_pattern)
         except re.error as e:
             console.print(f"[red]Invalid regex: {e}[/red]")
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
     rule = PolicyRule(
         name=name,
@@ -267,7 +271,9 @@ def add_cmd() -> None:
         preview_lines.append(f"Command pattern: {command_pattern}")
     if path_pattern:
         preview_lines.append(f"Path pattern: {path_pattern}")
-    console.print(Panel("\n".join(preview_lines), title="[bold]New Rule Preview[/bold]", expand=False))
+    console.print(
+        Panel("\n".join(preview_lines), title="[bold]New Rule Preview[/bold]", expand=False)
+    )
 
     if not click.confirm("Save this rule?", default=True):
         console.print("[yellow]Cancelled.[/yellow]")
@@ -392,10 +398,10 @@ def test_cmd(
             raise SystemExit(1)
 
         from agent_spm.domain.models import Policy as PolicyModel
+
         test_policies = [PolicyModel(name="test", description="", rules=[target_rule])]
-        console.print(
-            f"Testing rule [bold]'{rule_name}'[/bold] against {len(sessions)} recent session(s)...\n"
-        )
+        n = len(sessions)
+        console.print(f"Testing rule [bold]'{rule_name}'[/bold] against {n} recent session(s)...\n")
     else:
         test_policies = policies
         console.print(f"Testing all rules against {len(sessions)} recent session(s)...\n")

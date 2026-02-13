@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -78,7 +78,8 @@ def _render_directory_overview(all_sessions: list[Session], policies: list[Polic
 
     title = (
         f"Agent Sessions \u2500\u2500 "
-        f"{len(all_sessions)} session(s) across {len(groups)} director{'y' if len(groups) == 1 else 'ies'} \u2500\u2500 "
+        f"{len(all_sessions)} session(s) across {len(groups)} "
+        f"director{'y' if len(groups) == 1 else 'ies'} \u2500\u2500 "
         f"{total_rules} policy rule(s) loaded"
     )
 
@@ -100,8 +101,7 @@ def _render_directory_overview(all_sessions: list[Session], policies: list[Polic
         # Top tools (up to 5)
         top_tools = inventory[:5]
         tools_str = "  ".join(
-            f"[dim]{entry.tool_name}[/dim]([cyan]{entry.call_count}[/cyan])"
-            for entry in top_tools
+            f"[dim]{entry.tool_name}[/dim]([cyan]{entry.call_count}[/cyan])" for entry in top_tools
         )
 
         lines.append(
@@ -133,8 +133,7 @@ def _render_session_detail(
         return
     if len(matched) > 1:
         console.print(
-            f"[yellow]Multiple sessions match prefix '{prefix}'. "
-            f"Using most recent.[/yellow]"
+            f"[yellow]Multiple sessions match prefix '{prefix}'. Using most recent.[/yellow]"
         )
 
     session = matched[0]
@@ -208,9 +207,9 @@ def _render_session_detail(
     if alerts:
         from agent_spm.domain.models import Severity
 
-        _SEVERITY_ORDER = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]
+        severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]
         alerts_sorted = sorted(
-            alerts, key=lambda a: (_SEVERITY_ORDER.index(a.severity), a.event.timestamp)
+            alerts, key=lambda a: (severity_order.index(a.severity), a.event.timestamp)
         )
 
         al_table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
@@ -254,9 +253,9 @@ def _last_activity(sessions: list[Session]) -> datetime | None:
 
 
 def _relative_time(dt: datetime) -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     diff = now - dt
     seconds = int(diff.total_seconds())
     if seconds < 60:
@@ -271,11 +270,11 @@ def _relative_time(dt: datetime) -> str:
 def _format_duration(start: datetime | None, end: datetime | None) -> str:
     if not start:
         return "?"
-    finish = end or datetime.now(tz=timezone.utc)
+    finish = end or datetime.now(tz=UTC)
     if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
+        start = start.replace(tzinfo=UTC)
     if finish.tzinfo is None:
-        finish = finish.replace(tzinfo=timezone.utc)
+        finish = finish.replace(tzinfo=UTC)
     seconds = int((finish - start).total_seconds())
     if seconds < 60:
         return f"{seconds}s"
@@ -289,5 +288,5 @@ def _format_duration(start: datetime | None, end: datetime | None) -> str:
 def _shorten_path(path: str) -> str:
     home = os.path.expanduser("~")
     if path.startswith(home):
-        return "~" + path[len(home):]
+        return "~" + path[len(home) :]
     return path

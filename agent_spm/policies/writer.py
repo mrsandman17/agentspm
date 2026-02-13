@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from agent_spm.domain.models import ActionType, PolicyRule
+from agent_spm.domain.models import PolicyRule
 
 CUSTOM_POLICY_PATH = Path.home() / ".claude" / "agent_spm" / "policies" / "custom.yml"
 

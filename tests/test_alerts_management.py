@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from agent_spm.cli.alerts import alerts
-from agent_spm.domain.models import ActionType, Alert, Event, Policy, PolicyRule, RuleMatch, Session, Severity, Target
-from agent_spm.policies import writer as writer_module
+from agent_spm.domain.models import (
+    ActionType,
+    Event,
+    PolicyRule,
+    RuleMatch,
+    Session,
+    Severity,
+    Target,
+)
 from agent_spm.policies.writer import (
-    _rule_to_dict,
     clear_custom_rules,
     list_custom_rules,
     remove_custom_rule,
@@ -24,7 +29,7 @@ from agent_spm.policies.writer import (
 
 
 def _dt(*args: int) -> datetime:
-    return datetime(*args, tzinfo=timezone.utc)
+    return datetime(*args, tzinfo=UTC)
 
 
 def _session(session_id: str = "abc123def456") -> Session:
@@ -99,9 +104,13 @@ class TestAlertsRules:
         save_custom_rule(_rule(name="my-custom-rule"), path=custom_path)
 
         runner = CliRunner()
-        with patch("agent_spm.policies.loader.CUSTOM_POLICY_DIR", tmp_path), \
-             patch("agent_spm.cli.alerts.list_custom_rules",
-                   partial(list_custom_rules, path=custom_path)):
+        with (
+            patch("agent_spm.policies.loader.CUSTOM_POLICY_DIR", tmp_path),
+            patch(
+                "agent_spm.cli.alerts.list_custom_rules",
+                partial(list_custom_rules, path=custom_path),
+            ),
+        ):
             result = runner.invoke(alerts, ["rules"])
         assert result.exit_code == 0
 
@@ -113,19 +122,25 @@ class TestAlertsAdd:
         custom_path = tmp_path / "custom.yml"
         runner = CliRunner()
 
-        user_input = "\n".join([
-            "my-rule",            # name
-            "Test rule",          # description
-            "high",               # severity
-            "shell_exec",         # action types
-            "any",                # elevated
-            "deploy.*prod",       # command pattern
-            "",                   # path pattern (empty)
-            "y",                  # confirm save
-        ]) + "\n"
+        user_input = (
+            "\n".join(
+                [
+                    "my-rule",  # name
+                    "Test rule",  # description
+                    "high",  # severity
+                    "shell_exec",  # action types
+                    "any",  # elevated
+                    "deploy.*prod",  # command pattern
+                    "",  # path pattern (empty)
+                    "y",  # confirm save
+                ]
+            )
+            + "\n"
+        )
 
-        with patch("agent_spm.cli.alerts.save_custom_rule",
-                   partial(save_custom_rule, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.save_custom_rule", partial(save_custom_rule, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["add"], input=user_input)
 
         assert result.exit_code == 0
@@ -135,19 +150,25 @@ class TestAlertsAdd:
         custom_path = tmp_path / "custom.yml"
         runner = CliRunner()
 
-        user_input = "\n".join([
-            "my-rule",
-            "Test rule",
-            "high",
-            "all",
-            "any",
-            "",
-            "",
-            "n",  # cancel
-        ]) + "\n"
+        user_input = (
+            "\n".join(
+                [
+                    "my-rule",
+                    "Test rule",
+                    "high",
+                    "all",
+                    "any",
+                    "",
+                    "",
+                    "n",  # cancel
+                ]
+            )
+            + "\n"
+        )
 
-        with patch("agent_spm.cli.alerts.save_custom_rule",
-                   partial(save_custom_rule, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.save_custom_rule", partial(save_custom_rule, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["add"], input=user_input)
 
         assert result.exit_code == 0
@@ -157,14 +178,19 @@ class TestAlertsAdd:
     def test_invalid_regex_rejected(self) -> None:
         runner = CliRunner()
 
-        user_input = "\n".join([
-            "my-rule",
-            "Test rule",
-            "high",
-            "all",
-            "any",
-            "[invalid",  # bad regex for command pattern
-        ]) + "\n"
+        user_input = (
+            "\n".join(
+                [
+                    "my-rule",
+                    "Test rule",
+                    "high",
+                    "all",
+                    "any",
+                    "[invalid",  # bad regex for command pattern
+                ]
+            )
+            + "\n"
+        )
 
         result = runner.invoke(alerts, ["add"], input=user_input)
         assert result.exit_code != 0 or "Invalid regex" in result.output
@@ -183,8 +209,9 @@ class TestAlertsRemove:
         save_custom_rule(_rule(name="to-remove"), path=custom_path)
 
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.remove_custom_rule",
-                   partial(remove_custom_rule, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.remove_custom_rule", partial(remove_custom_rule, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["remove", "to-remove"])
 
         assert result.exit_code == 0
@@ -193,8 +220,9 @@ class TestAlertsRemove:
     def test_remove_nonexistent(self, tmp_path: Path) -> None:
         custom_path = tmp_path / "custom.yml"
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.remove_custom_rule",
-                   partial(remove_custom_rule, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.remove_custom_rule", partial(remove_custom_rule, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["remove", "nonexistent"])
         assert result.exit_code != 0
 
@@ -205,9 +233,13 @@ class TestAlertsClear:
         save_custom_rule(_rule(name="r1"), path=custom_path)
 
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.CUSTOM_POLICY_PATH", custom_path), \
-             patch("agent_spm.cli.alerts.clear_custom_rules",
-                   partial(clear_custom_rules, path=custom_path)):
+        with (
+            patch("agent_spm.cli.alerts.CUSTOM_POLICY_PATH", custom_path),
+            patch(
+                "agent_spm.cli.alerts.clear_custom_rules",
+                partial(clear_custom_rules, path=custom_path),
+            ),
+        ):
             result = runner.invoke(alerts, ["clear"], input="y\n")
 
         assert result.exit_code == 0
@@ -249,8 +281,9 @@ class TestAlertsEnableDisable:
         save_custom_rule(_rule(name="target"), path=custom_path)
 
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.set_rule_enabled",
-                   partial(set_rule_enabled, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["disable", "target"])
 
         assert result.exit_code == 0
@@ -258,17 +291,21 @@ class TestAlertsEnableDisable:
 
     def test_enable_rule(self, tmp_path: Path) -> None:
         custom_path = tmp_path / "custom.yml"
-        save_custom_rule(PolicyRule(
-            name="target",
-            description="",
-            severity=Severity.LOW,
-            match=RuleMatch(),
-            enabled=False,
-        ), path=custom_path)
+        save_custom_rule(
+            PolicyRule(
+                name="target",
+                description="",
+                severity=Severity.LOW,
+                match=RuleMatch(),
+                enabled=False,
+            ),
+            path=custom_path,
+        )
 
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.set_rule_enabled",
-                   partial(set_rule_enabled, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["enable", "target"])
 
         assert result.exit_code == 0
@@ -277,8 +314,9 @@ class TestAlertsEnableDisable:
     def test_enable_nonexistent(self, tmp_path: Path) -> None:
         custom_path = tmp_path / "nonexistent.yml"
         runner = CliRunner()
-        with patch("agent_spm.cli.alerts.set_rule_enabled",
-                   partial(set_rule_enabled, path=custom_path)):
+        with patch(
+            "agent_spm.cli.alerts.set_rule_enabled", partial(set_rule_enabled, path=custom_path)
+        ):
             result = runner.invoke(alerts, ["enable", "nonexistent"])
         assert result.exit_code != 0
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 
 from agent_spm.domain.models import ActionType, PolicyRule, RuleMatch, Severity

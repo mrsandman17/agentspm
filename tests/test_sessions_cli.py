@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from agent_spm.cli.sessions import (
@@ -19,7 +18,7 @@ from agent_spm.domain.models import ActionType, Event, Session, Target
 
 
 def _dt(*args: int) -> datetime:
-    return datetime(*args, tzinfo=timezone.utc)
+    return datetime(*args, tzinfo=UTC)
 
 
 def _session(
@@ -57,28 +56,33 @@ class TestGroupByDirectory:
 class TestRelativeTime:
     def test_seconds(self) -> None:
         from datetime import timedelta
-        dt = datetime.now(tz=timezone.utc) - timedelta(seconds=30)
+
+        dt = datetime.now(tz=UTC) - timedelta(seconds=30)
         result = _relative_time(dt)
         assert "s ago" in result
 
     def test_minutes(self) -> None:
         from datetime import timedelta
-        dt = datetime.now(tz=timezone.utc) - timedelta(minutes=5)
+
+        dt = datetime.now(tz=UTC) - timedelta(minutes=5)
         assert "m ago" in _relative_time(dt)
 
     def test_hours(self) -> None:
         from datetime import timedelta
-        dt = datetime.now(tz=timezone.utc) - timedelta(hours=3)
+
+        dt = datetime.now(tz=UTC) - timedelta(hours=3)
         assert "h ago" in _relative_time(dt)
 
     def test_days(self) -> None:
         from datetime import timedelta
-        dt = datetime.now(tz=timezone.utc) - timedelta(days=2)
+
+        dt = datetime.now(tz=UTC) - timedelta(days=2)
         assert "d ago" in _relative_time(dt)
 
     def test_naive_datetime(self) -> None:
         # Should not raise
         from datetime import timedelta
+
         dt = datetime.utcnow() - timedelta(hours=1)
         result = _relative_time(dt)
         assert "ago" in result
@@ -107,6 +111,7 @@ class TestFormatDuration:
 class TestShortenPath:
     def test_replaces_home(self, tmp_path) -> None:
         import os
+
         home = os.path.expanduser("~")
         result = _shorten_path(home + "/Development/project")
         assert result.startswith("~")

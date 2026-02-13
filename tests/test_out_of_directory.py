@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 from agent_spm.domain.models import (
     ActionType,
-    Alert,
     Event,
     Policy,
     PolicyRule,
@@ -26,7 +23,7 @@ def _session(cwd: str | None = "/home/user/project", events: list[Event] | None 
         session_id="test-session-id",
         model="claude-sonnet",
         cwd=cwd,
-        started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        started_at=datetime(2024, 1, 1, tzinfo=UTC),
         events=events or [],
     )
 
@@ -34,7 +31,7 @@ def _session(cwd: str | None = "/home/user/project", events: list[Event] | None 
 def _file_event(path: str, action: ActionType = ActionType.FILE_READ) -> Event:
     return Event(
         session_id="test-session-id",
-        timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         action_type=action,
         target=Target(tool_name="Read", path=path),
     )
@@ -65,7 +62,7 @@ class TestOutOfDirectoryMatch:
     def test_path_none_no_match(self) -> None:
         event = Event(
             session_id="test-session-id",
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             action_type=ActionType.FILE_READ,
             target=Target(tool_name="Read", path=None),
         )
@@ -85,7 +82,7 @@ class TestOutOfDirectoryMatch:
         # Only FILE_READ/FILE_WRITE — SHELL_EXEC should not match
         shell_event = Event(
             session_id="test-session-id",
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             action_type=ActionType.SHELL_EXEC,
             target=Target(tool_name="Bash", command="ls /etc"),
         )
