@@ -109,19 +109,8 @@ mypy agent_spm/
 
 ## AI Agent Instructions
 
-### Model Routing
-- **Architecture / planning** → Opus 4.6 (system design, security policy design, code review)
-- **Daily coding** → Sonnet 4.5 (features, tests, refactoring)
-- **Simple tasks** → Haiku 4.5 (formatting, renaming, trivial edits)
-
-### Thinking Mode
-- **None**: formatting, simple edits
-- **Medium**: most coding tasks (default)
-- **High**: architecture decisions and security policy design only
-
 ### Context Management
 - Delegate noisy operations (running tests, log parsing) to subagents — only the summary returns to context
-- Run `/compact` during long sessions to reduce history re-send cost
 - Reference docs live in separate `.md` files; CLAUDE.md just tells the model when to read them
 - Keep CLAUDE.md short. Move stable reference material (schemas, specs, runbooks) to topic files
 
