@@ -62,6 +62,12 @@ _SEVERITY_ORDER = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.L
     default=None,
     help="Maximum number of sessions to scan.",
 )
+@click.option(
+    "--detail",
+    is_flag=True,
+    default=False,
+    help="Show individual violations instead of the aggregated summary.",
+)
 @click.pass_context
 def alerts(
     ctx: click.Context,
@@ -69,6 +75,7 @@ def alerts(
     policy_path: Path | None,
     min_severity: str,
     limit: int | None,
+    detail: bool,
 ) -> None:
     """Evaluate agent sessions against security policies and show violations.
 
@@ -77,7 +84,84 @@ def alerts(
     if ctx.invoked_subcommand is not None:
         return
 
-    _list_alerts(path=path, policy_path=policy_path, min_severity=min_severity, limit=limit)
+    if detail:
+        _list_alerts(path=path, policy_path=policy_path, min_severity=min_severity, limit=limit)
+    else:
+        _list_alerts_aggregated(
+            path=path, policy_path=policy_path, min_severity=min_severity, limit=limit
+        )
+
+
+def _list_alerts_aggregated(
+    path: Path | None,
+    policy_path: Path | None,
+    min_severity: str,
+    limit: int | None,
+) -> None:
+    """Default alerts view: aggregated by rule (count + example target)."""
+    policies = _load_policies(policy_path)
+    sessions = scan_sessions(base_dir=path, limit=limit)
+    if not sessions:
+        console.print("[yellow]No sessions found.[/yellow]")
+        return
+
+    all_alerts = evaluate(sessions, policies)
+
+    min_sev = Severity(min_severity)
+    min_idx = _SEVERITY_ORDER.index(min_sev)
+    filtered = [a for a in all_alerts if _SEVERITY_ORDER.index(a.severity) <= min_idx]
+
+    policy_names = ", ".join(p.name for p in policies)
+    console.print(
+        f"\n[bold]Alerts[/bold] — "
+        f"{len(sessions)} session(s), "
+        f"{len(all_alerts)} violation(s) "
+        f"[dim](policies: {policy_names})[/dim]\n"
+    )
+
+    if not filtered:
+        console.print("[green]No alerts.[/green]")
+        return
+
+    # Aggregate by rule name
+    from collections import defaultdict
+
+    rule_counts: dict[str, int] = defaultdict(int)
+    rule_severity: dict[str, Severity] = {}
+    rule_example: dict[str, str] = {}
+
+    for alert in filtered:
+        name = alert.rule_name
+        rule_counts[name] += 1
+        rule_severity[name] = alert.severity
+        if name not in rule_example:
+            target = (
+                alert.event.target.command
+                or alert.event.target.path
+                or alert.event.target.tool_name
+            )
+            rule_example[name] = (target or "")[:55]
+
+    # Sort by severity (worst first), then count descending
+    sorted_rules = sorted(
+        rule_counts.keys(),
+        key=lambda n: (_SEVERITY_ORDER.index(rule_severity[n]), -rule_counts[n]),
+    )
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    table.add_column("Severity", width=10)
+    table.add_column("Rule", width=28)
+    table.add_column("Count", width=7, justify="right")
+    table.add_column("Example", min_width=30)
+
+    for name in sorted_rules:
+        sev_str = rule_severity[name].value
+        color = _SEVERITY_COLORS.get(sev_str, "white")
+        sev_display = f"[{color}]{sev_str.upper()}[/{color}]"
+        table.add_row(sev_display, name, str(rule_counts[name]), rule_example[name])
+
+    console.print(table)
+    console.print("[dim]Use --detail to see individual violations.[/dim]\n")
 
 
 def _list_alerts(
@@ -170,6 +254,9 @@ def rules_cmd(policy_path: Path | None) -> None:
     table.add_column("Source", width=10)
     table.add_column("Status", width=10)
 
+    from agent_spm.policies.defaults import DEFAULT_POLICY
+
+    default_rule_names = {r.name for r in DEFAULT_POLICY.rules}
     custom_rule_names = {r.get("name") for r in list_custom_rules()}
 
     for policy in policies:
@@ -178,8 +265,19 @@ def rules_cmd(policy_path: Path | None) -> None:
             color = _SEVERITY_COLORS.get(sev_str, "white")
             sev_display = f"[{color}]{sev_str.upper()}[/{color}]"
 
-            source = "custom" if rule.name in custom_rule_names else policy.name
-            status_display = "[green]enabled[/green]" if rule.enabled else "[dim]disabled[/dim]"
+            is_override = rule.name in custom_rule_names and rule.name in default_rule_names
+            if is_override:
+                source = "default"
+                status = "enabled (override)" if rule.enabled else "disabled (override)"
+                status_display = (
+                    f"[green]{status}[/green]" if rule.enabled else f"[dim]{status}[/dim]"
+                )
+            elif rule.name in custom_rule_names:
+                source = "custom"
+                status_display = "[green]enabled[/green]" if rule.enabled else "[dim]disabled[/dim]"
+            else:
+                source = policy.name
+                status_display = "[green]enabled[/green]" if rule.enabled else "[dim]disabled[/dim]"
 
             table.add_row(rule.name, sev_display, source, status_display)
 
@@ -189,24 +287,44 @@ def rules_cmd(policy_path: Path | None) -> None:
 @alerts.command("add")
 def add_cmd() -> None:
     """Interactive wizard to create a new custom alert rule."""
-    console.print("[bold]Add Custom Rule[/bold]\n")
+    console.print(
+        Panel(
+            "[dim]Name:[/dim]            no-prod-deploys\n"
+            "[dim]Description:[/dim]     Flag deployment commands to production\n"
+            "[dim]Severity:[/dim]        critical\n"
+            "[dim]Action types:[/dim]    shell_exec\n"
+            "[dim]Command pattern:[/dim] deploy.*prod\n\n"
+            "This rule fires when a shell command matches the regex [bold]deploy.*prod[/bold].",
+            title="[bold]Example Rule[/bold]",
+            expand=False,
+        )
+    )
+    console.print()
 
-    name = click.prompt("Rule name")
+    name = click.prompt('Rule name (lowercase with hyphens, e.g. "no-prod-deploys")')
     if not re.match(r"^[a-z0-9][a-z0-9-]*$", name):
         console.print("[red]Name must be lowercase alphanumeric with hyphens.[/red]")
         raise SystemExit(1)
 
-    description = click.prompt("Description")
+    description = click.prompt("Description (what does this rule catch?)")
 
     sev_str = click.prompt(
-        "Severity",
+        "Severity [low / medium / high / critical]",
         type=click.Choice(["low", "medium", "high", "critical"], case_sensitive=False),
         default="medium",
     )
     severity = Severity(sev_str.lower())
 
+    console.print(
+        "Action types — which agent actions should this rule check?\n"
+        "  [cyan]shell_exec[/cyan]  = shell/terminal commands (Bash tool)\n"
+        "  [cyan]file_read[/cyan]   = file reads (Read, NotebookRead tools)\n"
+        "  [cyan]file_write[/cyan]  = file writes (Write, Edit tools)\n"
+        "  [cyan]tool_call[/cyan]   = any other tool call (Glob, Grep, etc.)\n"
+        "  [cyan]all[/cyan]         = match any action type"
+    )
     action_input = click.prompt(
-        "Action types (comma-separated, or 'all')",
+        'Comma-separated, or "all"',
         default="all",
     )
     action_types: list[ActionType] | None = None
@@ -222,7 +340,7 @@ def add_cmd() -> None:
 
     elevated_input = (
         click.prompt(
-            "Match elevated events only? (yes/no/any)",
+            "Match elevated events only? [yes / no / any]",
             default="any",
         )
         .strip()
@@ -234,7 +352,12 @@ def add_cmd() -> None:
     elif elevated_input == "no":
         elevated = False
 
-    command_pattern = click.prompt("Command regex pattern (empty to skip)", default="") or None
+    console.print(
+        "Command regex pattern — matches against shell commands.\n"
+        '  Examples: [dim]"deploy.*prod"[/dim], [dim]"npm install -g"[/dim], '
+        '[dim]"docker push"[/dim]'
+    )
+    command_pattern = click.prompt("  Command pattern (empty to skip)", default="") or None
     if command_pattern:
         try:
             re.compile(command_pattern)
@@ -242,7 +365,11 @@ def add_cmd() -> None:
             console.print(f"[red]Invalid regex: {e}[/red]")
             raise SystemExit(1) from None
 
-    path_pattern = click.prompt("Path regex pattern (empty to skip)", default="") or None
+    console.print(
+        "Path regex pattern — matches against file paths.\n"
+        r'  Examples: [dim]"\.env$"[/dim], [dim]"/etc/"[/dim], [dim]"secrets/"[/dim]'
+    )
+    path_pattern = click.prompt("  Path pattern (empty to skip)", default="") or None
     if path_pattern:
         try:
             re.compile(path_pattern)
@@ -323,22 +450,22 @@ def default_cmd() -> None:
 @alerts.command("enable")
 @click.argument("name")
 def enable_cmd(name: str) -> None:
-    """Enable a disabled custom rule by NAME."""
+    """Enable a disabled rule by NAME (custom or default)."""
     if set_rule_enabled(name, enabled=True):
         console.print(f"[green]✓ Rule '{name}' enabled.[/green]")
     else:
-        console.print(f"[red]Rule '{name}' not found in custom rules.[/red]")
+        console.print(f"[red]Rule '{name}' not found.[/red]")
         raise SystemExit(1)
 
 
 @alerts.command("disable")
 @click.argument("name")
 def disable_cmd(name: str) -> None:
-    """Disable a custom rule by NAME (without deleting it)."""
+    """Disable a rule by NAME without deleting it (works for default rules too)."""
     if set_rule_enabled(name, enabled=False):
         console.print(f"[dim]Rule '{name}' disabled.[/dim]")
     else:
-        console.print(f"[red]Rule '{name}' not found in custom rules.[/red]")
+        console.print(f"[red]Rule '{name}' not found.[/red]")
         raise SystemExit(1)
 
 
