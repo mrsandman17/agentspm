@@ -6,8 +6,9 @@
 - [x] **PR 2** — SQLite storage, inventory engine, `agent-spm inventory`, `agent-spm events`
 - [x] **PR 3** — Policy engine, YAML loader, evaluator, `agent-spm alerts`
 - [x] **PR 4** — Posture scoring engine, `agent-spm posture`
+- [x] **PR 5** — Report generation engine, `agent-spm report`, full README
 
-## Current: PR 5 — Report Generation + README
+## Current: PR 6 — mypy + CI
 
 **Status**: In Progress
 
@@ -20,7 +21,7 @@
 | `agent-spm events` | ✅ merged |
 | `agent-spm alerts` | ✅ merged |
 | `agent-spm posture` | ✅ merged |
-| `agent-spm report` | 🔨 PR 5 |
+| `agent-spm report` | ✅ merged |
 
 ## Test Coverage
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Any
 
 from agent_spm.domain.models import ActionType, Session
 
@@ -29,7 +30,7 @@ def build_inventory(sessions: list[Session]) -> list[ToolInventoryEntry]:
     Returns entries sorted by call_count descending.
     """
     # tool_name -> {call_count, session_ids, elevated_count, action_type}
-    stats: dict[str, dict] = defaultdict(
+    stats: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"call_count": 0, "session_ids": set(), "elevated_count": 0, "action_type": None}
     )
 

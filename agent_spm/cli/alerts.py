@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from agent_spm.adapters.claude_code import scan_sessions
-from agent_spm.domain.models import Severity
+from agent_spm.domain.models import Policy, Severity
 from agent_spm.engine.evaluator import evaluate
 from agent_spm.policies.defaults import DEFAULT_POLICY
 from agent_spm.policies.loader import load_policy, load_policy_dir
@@ -120,7 +120,7 @@ def alerts(
     console.print()
 
 
-def _load_policies(policy_path: Path | None) -> list:
+def _load_policies(policy_path: Path | None) -> list[Policy]:
     if policy_path is None:
         return [DEFAULT_POLICY]
     if policy_path.is_dir():
