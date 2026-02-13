@@ -1,4 +1,4 @@
-"""Inventory command — show tools used across agent sessions."""
+"""Tools command — show tools used across agent sessions."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ _ACTION_COLORS = {
     default=None,
     help="Maximum number of sessions to scan.",
 )
-def inventory(path: Path | None, limit: int | None) -> None:
+def tools(path: Path | None, limit: int | None) -> None:
     """Show tools used across agent sessions (SSPM application inventory)."""
     sessions = scan_sessions(base_dir=path, limit=limit)
 

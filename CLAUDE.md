@@ -73,7 +73,7 @@ pip install -e ".[dev]"
 
 # Run
 agent-spm scan
-agent-spm inventory
+agent-spm tools
 agent-spm events --elevated
 agent-spm posture
 agent-spm alerts
