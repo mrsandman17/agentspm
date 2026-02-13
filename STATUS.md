@@ -7,10 +7,9 @@
 - [x] **PR 3** — Policy engine, YAML loader, evaluator, `agent-spm alerts`
 - [x] **PR 4** — Posture scoring engine, `agent-spm posture`
 - [x] **PR 5** — Report generation engine, `agent-spm report`, full README
+- [x] **PR 6** — mypy strict mode, GitHub Actions CI (Python 3.11 + 3.12)
 
-## Current: PR 6 — mypy + CI
-
-**Status**: In Progress
+## Status: All planned PRs merged ✅
 
 ## Commands
 

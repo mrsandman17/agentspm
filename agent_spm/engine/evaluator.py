@@ -25,7 +25,7 @@ def evaluate(sessions: list[Session], policies: list[Policy]) -> list[Alert]:
         for event in session.events:
             for policy in policies:
                 for rule in policy.rules:
-                    if rule.match.matches(event):
+                    if rule.enabled and rule.match.matches(event, session=session):
                         alerts.append(_make_alert(rule, event))
     return alerts
 

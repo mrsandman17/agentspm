@@ -91,10 +91,26 @@ ruff format .
 mypy agent_spm/
 ```
 
+## Pre-Push Checklist
+
+**Before every push, run `scripts/check.sh`. It mirrors CI exactly — if it passes locally, CI passes.**
+
+```bash
+bash scripts/check.sh
+```
+
+`scripts/check.sh` runs the four steps from `.github/workflows/ci.yml` in order:
+1. `ruff check .` — lint
+2. `ruff format --check .` — formatting (run `ruff format .` to auto-fix)
+3. `mypy agent_spm/` — strict type checking
+4. `pytest --cov=agent_spm --cov-report=term-missing` — full test suite
+
+Keep `scripts/check.sh` in sync with `.github/workflows/ci.yml` if CI ever changes.
+
 ## How to Contribute
 
 - Every PR must include tests proving the feature works
-- Tests must pass before opening a PR
+- Run the pre-push checklist above before opening a PR
 - Follow the domain vocabulary — don't invent new terms for existing concepts
 - Keep modules decoupled: don't import storage from engine, don't import CLI from domain
 

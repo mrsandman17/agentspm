@@ -112,7 +112,10 @@ class RuleMatch:
     path_pattern: str | None = None
     """Regex matched against event.target.path. None = skip check."""
 
-    def matches(self, event: Event) -> bool:
+    out_of_directory: bool | None = None
+    """If True, match events where the file path is outside session.cwd."""
+
+    def matches(self, event: Event, session: Session | None = None) -> bool:
         """Return True iff ALL specified conditions match the event."""
         if self.action_types is not None and event.action_type not in self.action_types:
             return False
@@ -128,6 +131,14 @@ class RuleMatch:
                 return False
             if not re.search(self.path_pattern, event.target.path):
                 return False
+        if self.out_of_directory is not None:
+            if not event.target.path or not session or not session.cwd:
+                return False
+            path = event.target.path
+            cwd = session.cwd.rstrip("/")
+            is_outside = not (path == cwd or path.startswith(cwd + "/"))
+            if is_outside != self.out_of_directory:
+                return False
         return True
 
 
@@ -142,6 +153,8 @@ class PolicyRule:
     description: str
     severity: Severity
     match: RuleMatch = field(default_factory=RuleMatch)
+    enabled: bool = True
+    """Whether this rule is active. Disabled rules are never evaluated."""
 
 
 @dataclass
