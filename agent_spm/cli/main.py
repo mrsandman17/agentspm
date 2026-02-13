@@ -6,6 +6,7 @@ from agent_spm.cli.alerts import alerts
 from agent_spm.cli.events import events
 from agent_spm.cli.inventory import inventory
 from agent_spm.cli.posture import posture
+from agent_spm.cli.report import report
 from agent_spm.cli.scan import scan
 
 
@@ -20,3 +21,4 @@ cli.add_command(inventory)
 cli.add_command(events)
 cli.add_command(alerts)
 cli.add_command(posture)
+cli.add_command(report)
