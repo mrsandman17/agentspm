@@ -45,7 +45,7 @@ DEFAULT_POLICY = Policy(
         PolicyRule(
             name="destructive-remove",
             description="Recursive force remove (rm -rf) — risk of permanent data loss",
-            severity=Severity.HIGH,
+            severity=Severity.MEDIUM,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 command_pattern=r"\brm\s+-rf\b",
