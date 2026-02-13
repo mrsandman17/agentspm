@@ -20,6 +20,7 @@ Schema:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -57,7 +58,7 @@ def load_policy_dir(directory: Path) -> list[Policy]:
     return policies
 
 
-def _parse_policy(data: dict, source: str = "") -> Policy:
+def _parse_policy(data: dict[str, Any], source: str = "") -> Policy:
     name = data.get("name")
     if not name:
         raise ValueError(f"Policy missing 'name' field (source: {source})")
@@ -71,7 +72,7 @@ def _parse_policy(data: dict, source: str = "") -> Policy:
     )
 
 
-def _parse_rule(data: dict, source: str = "") -> PolicyRule:
+def _parse_rule(data: dict[str, Any], source: str = "") -> PolicyRule:
     name = data.get("name")
     if not name:
         raise ValueError(f"Rule missing 'name' field (source: {source})")
@@ -93,7 +94,7 @@ def _parse_rule(data: dict, source: str = "") -> PolicyRule:
     )
 
 
-def _parse_match(data: dict, rule_name: str = "") -> RuleMatch:
+def _parse_match(data: dict[str, Any], rule_name: str = "") -> RuleMatch:
     action_types = None
     if "action_types" in data:
         raw = data["action_types"]

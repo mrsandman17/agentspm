@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from agent_spm.adapters.claude_code import scan_sessions
-from agent_spm.domain.models import Severity
+from agent_spm.domain.models import Policy, Severity
 from agent_spm.engine.evaluator import evaluate
 from agent_spm.engine.posture import calculate_posture
 from agent_spm.policies.defaults import DEFAULT_POLICY
@@ -93,7 +93,7 @@ def posture(path: Path | None, policy_path: Path | None, limit: int | None) -> N
     console.print()
 
 
-def _load_policies(policy_path: Path | None) -> list:
+def _load_policies(policy_path: Path | None) -> list[Policy]:
     if policy_path is None:
         return [DEFAULT_POLICY]
     if policy_path.is_dir():
