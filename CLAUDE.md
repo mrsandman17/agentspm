@@ -109,7 +109,23 @@ mypy agent_spm/
 
 ## AI Agent Instructions
 
-- Use subagents with **sonnet** model to reduce token usage and preserve context
+### Model Routing
+- **Architecture / planning** → Opus 4.6 (system design, security policy design, code review)
+- **Daily coding** → Sonnet 4.5 (features, tests, refactoring)
+- **Simple tasks** → Haiku 4.5 (formatting, renaming, trivial edits)
+
+### Thinking Mode
+- **None**: formatting, simple edits
+- **Medium**: most coding tasks (default)
+- **High**: architecture decisions and security policy design only
+
+### Context Management
+- Delegate noisy operations (running tests, log parsing) to subagents — only the summary returns to context
+- Run `/compact` during long sessions to reduce history re-send cost
+- Reference docs live in separate `.md` files; CLAUDE.md just tells the model when to read them
+- Keep CLAUDE.md short. Move stable reference material (schemas, specs, runbooks) to topic files
+
+### Code Standards
 - Read surrounding code first. Match existing patterns and style.
 - For non-trivial changes: pause and ask "is there a more elegant way?"
 - No temporary fixes. Find root causes. Senior developer standards.
@@ -117,10 +133,3 @@ mypy agent_spm/
 ## Project Status
 
 Track project progression in [STATUS.md](./STATUS.md).
-
-### PR Sequence
-- [ ] PR 1: Project scaffold + domain models + Claude Code parser + tests
-- [ ] PR 2: SQLite storage + inventory/events commands
-- [ ] PR 3: Policy engine + evaluation + alerts
-- [ ] PR 4: Posture scoring + elevated permission detection
-- [ ] PR 5: TUI polish + report generation + README
