@@ -167,3 +167,25 @@ class Alert:
     severity: Severity
     event: Event
     message: str
+
+
+@dataclass(frozen=True)
+class PostureScore:
+    """Security posture score for a set of agent sessions.
+
+    Maps to SSPM "posture score" — a quantified measure of security health.
+    Score range: 0 (critical risk) to 100 (no issues detected).
+    """
+
+    score: int
+    """0–100. Deducted by alert severity; capped per severity band."""
+
+    grade: str
+    """Letter grade: A (90–100), B (75–89), C (60–74), D (45–59), F (0–44)."""
+
+    total_sessions: int
+    total_events: int
+    total_alerts: int
+    alerts_by_severity: dict[Severity, int]
+    elevated_event_ratio: float
+    """Fraction of events that were elevated (0.0–1.0)."""
