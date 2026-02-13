@@ -63,5 +63,14 @@ DEFAULT_POLICY = Policy(
                 command_pattern=r"\brm\s+-rf\b",
             ),
         ),
+        PolicyRule(
+            name="out-of-directory-access",
+            description="Agent accessed files outside its working directory",
+            severity=Severity.MEDIUM,
+            match=RuleMatch(
+                action_types=[ActionType.FILE_READ, ActionType.FILE_WRITE],
+                out_of_directory=True,
+            ),
+        ),
     ],
 )

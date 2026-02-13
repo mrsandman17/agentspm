@@ -10,11 +10,13 @@ Schema:
     - name: string
       description: string
       severity: low | medium | high | critical
+      enabled: true | false  (optional, defaults to true)
       match:
         action_types: [tool_call | file_read | file_write | shell_exec]
         elevated: true | false
         command_pattern: regex string
         path_pattern: regex string
+        out_of_directory: true | false
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ from typing import Any
 import yaml
 
 from agent_spm.domain.models import ActionType, Policy, PolicyRule, RuleMatch, Severity
+
+CUSTOM_POLICY_DIR = Path.home() / ".claude" / "agent_spm" / "policies"
 
 
 def load_policy(path: Path) -> Policy:
@@ -58,6 +62,33 @@ def load_policy_dir(directory: Path) -> list[Policy]:
     return policies
 
 
+def load_all_policies(user_policy_path: Path | None = None) -> list[Policy]:
+    """Load default policy + custom rules + optional user-specified policy.
+
+    Load order:
+    1. Built-in DEFAULT_POLICY
+    2. Custom rules from CUSTOM_POLICY_DIR (if any)
+    3. user_policy_path (if provided)
+
+    Rules with ``enabled: false`` are stripped from the loaded policies.
+    """
+    from agent_spm.policies.defaults import DEFAULT_POLICY
+
+    policies: list[Policy] = [DEFAULT_POLICY]
+
+    custom_policies = load_policy_dir(CUSTOM_POLICY_DIR)
+    policies.extend(custom_policies)
+
+    if user_policy_path is not None:
+        if user_policy_path.is_dir():
+            loaded = load_policy_dir(user_policy_path)
+            policies.extend(loaded if loaded else [])
+        else:
+            policies.append(load_policy(user_policy_path))
+
+    return policies
+
+
 def _parse_policy(data: dict[str, Any], source: str = "") -> Policy:
     name = data.get("name")
     if not name:
@@ -86,11 +117,14 @@ def _parse_rule(data: dict[str, Any], source: str = "") -> PolicyRule:
     match_data = data.get("match") or {}
     match = _parse_match(match_data, rule_name=name)
 
+    enabled = data.get("enabled", True)
+
     return PolicyRule(
         name=name,
         description=data.get("description", ""),
         severity=severity,
         match=match,
+        enabled=bool(enabled),
     )
 
 
@@ -106,10 +140,12 @@ def _parse_match(data: dict[str, Any], rule_name: str = "") -> RuleMatch:
                 raise ValueError(f"Invalid action_type '{at}' in rule '{rule_name}'") from err
 
     elevated = data.get("elevated")  # None if not specified
+    out_of_directory = data.get("out_of_directory")  # None if not specified
 
     return RuleMatch(
         action_types=action_types,
         elevated=elevated,
         command_pattern=data.get("command_pattern"),
         path_pattern=data.get("path_pattern"),
+        out_of_directory=out_of_directory,
     )
