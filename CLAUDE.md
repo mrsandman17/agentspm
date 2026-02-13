@@ -91,10 +91,23 @@ ruff format .
 mypy agent_spm/
 ```
 
+## Pre-Push Checklist
+
+**Run all three checks before every push. CI enforces all three — skipping any one wastes a round-trip.**
+
+```bash
+ruff check . && ruff format --check . && mypy agent_spm/ && pytest
+```
+
+- `ruff check .` — lint (B9xx, E5xx, F4xx, UP0xx, N8xx, I001, …)
+- `ruff format --check .` — formatting
+- `mypy agent_spm/` — strict type checking (all source files)
+- `pytest` — full test suite
+
 ## How to Contribute
 
 - Every PR must include tests proving the feature works
-- Tests must pass before opening a PR
+- Run the pre-push checklist above before opening a PR
 - Follow the domain vocabulary — don't invent new terms for existing concepts
 - Keep modules decoupled: don't import storage from engine, don't import CLI from domain
 

@@ -84,7 +84,10 @@ def _render_directory_overview(all_sessions: list[Session], policies: list[Polic
     )
 
     lines: list[str] = []
-    for dir_path, dir_sessions in sorted(groups.items(), key=lambda kv: _last_activity(kv[1])):
+    _epoch = datetime.min.replace(tzinfo=UTC)
+    for dir_path, dir_sessions in sorted(
+        groups.items(), key=lambda kv: _last_activity(kv[1]) or _epoch
+    ):
         dir_alerts = evaluate(dir_sessions, policies)
         ps = calculate_posture(dir_sessions, dir_alerts)
         inventory = build_inventory(dir_sessions)
@@ -248,7 +251,12 @@ def _group_by_directory(sessions: list[Session]) -> dict[str, list[Session]]:
 
 
 def _last_activity(sessions: list[Session]) -> datetime | None:
-    times = [s.ended_at or s.started_at for s in sessions if s.ended_at or s.started_at]
+    times: list[datetime] = [
+        t
+        for s in sessions
+        for t in [s.ended_at or s.started_at]
+        if t is not None
+    ]
     return max(times) if times else None
 
 
