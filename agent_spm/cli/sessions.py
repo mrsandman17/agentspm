@@ -252,10 +252,7 @@ def _group_by_directory(sessions: list[Session]) -> dict[str, list[Session]]:
 
 def _last_activity(sessions: list[Session]) -> datetime | None:
     times: list[datetime] = [
-        t
-        for s in sessions
-        for t in [s.ended_at or s.started_at]
-        if t is not None
+        t for s in sessions for t in [s.ended_at or s.started_at] if t is not None
     ]
     return max(times) if times else None
 

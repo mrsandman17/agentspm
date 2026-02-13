@@ -93,16 +93,19 @@ mypy agent_spm/
 
 ## Pre-Push Checklist
 
-**Run all three checks before every push. CI enforces all three — skipping any one wastes a round-trip.**
+**Before every push, run `scripts/check.sh`. It mirrors CI exactly — if it passes locally, CI passes.**
 
 ```bash
-ruff check . && ruff format --check . && mypy agent_spm/ && pytest
+bash scripts/check.sh
 ```
 
-- `ruff check .` — lint (B9xx, E5xx, F4xx, UP0xx, N8xx, I001, …)
-- `ruff format --check .` — formatting
-- `mypy agent_spm/` — strict type checking (all source files)
-- `pytest` — full test suite
+`scripts/check.sh` runs the four steps from `.github/workflows/ci.yml` in order:
+1. `ruff check .` — lint
+2. `ruff format --check .` — formatting (run `ruff format .` to auto-fix)
+3. `mypy agent_spm/` — strict type checking
+4. `pytest --cov=agent_spm --cov-report=term-missing` — full test suite
+
+Keep `scripts/check.sh` in sync with `.github/workflows/ci.yml` if CI ever changes.
 
 ## How to Contribute
 
