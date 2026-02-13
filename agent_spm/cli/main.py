@@ -2,6 +2,8 @@
 
 import click
 
+from agent_spm.cli.events import events
+from agent_spm.cli.inventory import inventory
 from agent_spm.cli.scan import scan
 
 
@@ -12,3 +14,5 @@ def cli() -> None:
 
 
 cli.add_command(scan)
+cli.add_command(inventory)
+cli.add_command(events)
