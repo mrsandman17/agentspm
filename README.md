@@ -27,7 +27,7 @@ agent-spm sessions
 agent-spm alerts
 
 # Raw event timeline
-agent-spm events --elevated
+agent-spm events
 
 # Export a Markdown report
 agent-spm report --output report.md
@@ -90,10 +90,8 @@ Raw event timeline with filtering.
 
 ```
 Options:
-  --session ID    Filter to a single session
-  --elevated      Show only elevated/risky events
   --action TYPE   Filter by action type (shell_exec, file_read, file_write, tool_call)
-  --limit N       Limit number of events shown
+  --limit N       Maximum number of events to display
 ```
 
 ### `agent-spm report`
@@ -137,6 +135,18 @@ Normal development sessions (file reads/writes, shell commands) typically score 
 
 ## Custom Policies
 
+Policy files are YAML and can be placed in `~/.claude/agent_spm/policies/`.
+Every `.yml`/`.yaml` file in that directory is loaded automatically alongside
+the built-in defaults. A custom rule whose `name` matches a default rule
+**replaces** it (use this to disable or tighten built-in rules).
+
+The interactive wizard is the easiest way to add a rule:
+
+```bash
+agent-spm alerts add          # interactive wizard — writes to ~/.claude/agent_spm/policies/custom.yml
+agent-spm alerts rules        # see all active rules and their source
+```
+
 ```yaml
 name: my-policy
 description: Custom rules for my team
@@ -162,7 +172,6 @@ rules:
 | Field | Type | Description |
 |---|---|---|
 | `action_types` | list | `tool_call`, `file_read`, `file_write`, `shell_exec` |
-| `elevated` | bool | Only match elevated/risky events |
 | `command_pattern` | regex | Matched against the shell command |
 | `path_pattern` | regex | Matched against the file path |
 | `out_of_directory` | bool | File outside session working directory |
