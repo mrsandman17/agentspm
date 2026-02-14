@@ -31,18 +31,6 @@ _VALID_ACTIONS = [a.value for a in ActionType]
     help="Override the default ~/.claude/projects/ directory.",
 )
 @click.option(
-    "--session",
-    "session_id",
-    default=None,
-    help="Filter events to a specific session ID prefix.",
-)
-@click.option(
-    "--elevated",
-    is_flag=True,
-    default=False,
-    help="Only show elevated permission events.",
-)
-@click.option(
     "--action",
     "action_filter",
     type=click.Choice(_VALID_ACTIONS),
@@ -53,53 +41,43 @@ _VALID_ACTIONS = [a.value for a in ActionType]
     "--limit",
     type=int,
     default=None,
-    help="Maximum number of sessions to scan.",
+    help="Maximum number of events to display.",
 )
 def events(
     path: Path | None,
-    session_id: str | None,
-    elevated: bool,
     action_filter: str | None,
     limit: int | None,
 ) -> None:
     """Query agent events with optional filters."""
-    sessions = scan_sessions(base_dir=path, limit=limit)
+    sessions = scan_sessions(base_dir=path, limit=None)
 
     if not sessions:
         console.print("[yellow]No sessions found.[/yellow]")
         return
-
-    # Apply session filter
-    if session_id:
-        sessions = [s for s in sessions if s.session_id.startswith(session_id)]
-        if not sessions:
-            console.print(f"[yellow]No sessions matching '{session_id}'.[/yellow]")
-            return
 
     # Collect and filter events
     action_type = ActionType(action_filter) if action_filter else None
     all_events = []
     for session in sessions:
         for event in session.events:
-            if elevated and not event.elevated:
-                continue
             if action_type and event.action_type != action_type:
                 continue
             all_events.append(event)
+
+    if limit:
+        all_events = all_events[:limit]
 
     if not all_events:
         console.print("[yellow]No events match the given filters.[/yellow]")
         return
 
-    elevated_count = sum(1 for e in all_events if e.elevated)
-    console.print(f"\n[bold]Events[/bold] — {len(all_events)} total, {elevated_count} elevated\n")
+    console.print(f"\n[bold]Events[/bold] — {len(all_events)} total\n")
 
     table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
     table.add_column("Session", width=14, style="dim")
     table.add_column("Time", style="dim", width=8)
     table.add_column("Action", width=12)
     table.add_column("Target", min_width=30)
-    table.add_column("Elevated", width=9, justify="center")
 
     for event in all_events:
         session_display = event.session_id[:12] + "…"
@@ -118,9 +96,7 @@ def events(
         else:
             target_display = event.target.tool_name
 
-        elevated_display = "[bold red]ELEVATED[/bold red]" if event.elevated else ""
-
-        table.add_row(session_display, time_str, action_display, target_display, elevated_display)
+        table.add_row(session_display, time_str, action_display, target_display)
 
     console.print(table)
     console.print()
