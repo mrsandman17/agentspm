@@ -14,8 +14,12 @@ The real risk isn't individual commands — it's developers granting wide permis
 
 ## Quick Start
 
+> **Note:** `agent-spm` is not yet published to PyPI. Install directly from the repository:
+
 ```bash
-pip install agent-spm
+git clone https://github.com/mrsandman17/agentspm.git
+cd agentspm
+pip install .
 
 # Posture score for all recent sessions
 agent-spm posture
@@ -27,7 +31,7 @@ agent-spm sessions
 agent-spm alerts
 
 # Raw event timeline
-agent-spm events --elevated
+agent-spm events
 
 # Export a Markdown report
 agent-spm report --output report.md
@@ -63,17 +67,19 @@ Options:
 Sub-commands:
   rules           List all rules with source and status
   add             Interactive wizard to create a custom rule
-  remove NAME     Delete a custom rule
-  enable NAME     Enable a rule (works on default rules too)
+  remove NAME     Delete a custom rule by name
+  clear           Remove all custom rules
+  default         Reset to built-in defaults — delete custom.yml
+  enable NAME     Enable a disabled rule (works on default rules too)
   disable NAME    Disable a rule without deleting it (works on default rules too)
   test            Dry-run rules against recent sessions
 ```
 
 **Disabling a noisy default rule:**
 ```bash
-agent-spm alerts disable out-of-directory-access
+agent-spm alerts disable elevated-shell-command
 agent-spm alerts rules   # shows "disabled (override)"
-agent-spm alerts enable out-of-directory-access
+agent-spm alerts enable elevated-shell-command
 ```
 
 **Adding a custom rule:**
@@ -82,7 +88,13 @@ agent-spm alerts add
 # Shows an example rule, then walks you through each field
 ```
 
-### `agent-spm inventory`
+**Dry-run rules without committing:**
+```bash
+agent-spm alerts test               # test all rules
+agent-spm alerts test --rule NAME   # test a specific rule
+```
+
+### `agent-spm tools`
 Tool usage aggregation — what tools ran, how often, how many sessions.
 
 ### `agent-spm events`
@@ -90,10 +102,11 @@ Raw event timeline with filtering.
 
 ```
 Options:
+  --path PATH     Override the default ~/.claude/projects/ directory
   --session ID    Filter to a single session
   --elevated      Show only elevated/risky events
   --action TYPE   Filter by action type (shell_exec, file_read, file_write, tool_call)
-  --limit N       Limit number of events shown
+  --limit N       Maximum number of sessions to scan
 ```
 
 ### `agent-spm report`
@@ -101,8 +114,11 @@ Export a Markdown security report.
 
 ```
 Options:
-  --output PATH   Write to file instead of printing to console
+  --path PATH     Override the default ~/.claude/projects/ directory
   --policy PATH   YAML policy file or directory
+  --limit N       Maximum number of sessions to scan
+  --top N         Maximum number of top violations and elevated events to include (default: 10)
+  --output PATH   Write to file instead of printing to console
 ```
 
 ## Default Security Rules
@@ -111,14 +127,39 @@ The built-in policy catches common high-risk patterns:
 
 | Rule | Severity | What It Catches |
 |---|---|---|
-| `force-push` | CRITICAL | `git push --force` — permanently destroys history |
-| `curl-pipe-bash` | CRITICAL | `curl ... \| bash` — remote code execution |
-| `sensitive-file-access` | HIGH | Reads `.env`, credentials, SSH keys |
-| `elevated-shell-command` | MEDIUM | `sudo`, `chmod 777`, `chown` |
-| `destructive-remove` | MEDIUM | `rm -rf` — risk of data loss |
-| `out-of-directory-access` | LOW | File access outside the session working directory |
+| `sensitive-file-access` | HIGH | Reads or writes `.env`, `.pem`, `.key`, credentials, `secrets/`, `/etc/passwd` |
+| `force-push` | HIGH | `git push --force` — can permanently destroy remote history |
+| `elevated-shell-command` | MEDIUM | `sudo`, `chmod 777`, `chown` and other elevated shell commands |
+| `destructive-remove` | MEDIUM | `rm -rf` — risk of permanent data loss |
 
 Any rule can be disabled if it's too noisy for your workflow (`agent-spm alerts disable <name>`).
+
+## What Counts as Elevated
+
+Events are flagged as elevated based on the command or file path. Use `--elevated` in `events` or `alerts` to filter to these only.
+
+**Shell commands:**
+
+| Pattern | Example |
+|---|---|
+| `sudo` | `sudo apt install ...` |
+| `chmod 777` or `chmod a+rwx` | `chmod 777 script.sh` |
+| `chown` | `chown root file` |
+| `rm -rf` | `rm -rf ./dist` |
+| `git push --force` / `-f` | `git push --force origin main` |
+| `curl ... \| bash` | `curl https://example.com/install.sh \| bash` |
+| `wget ... \| bash` | `wget -O- https://example.com/install.sh \| bash` |
+
+**File paths (reads or writes):**
+
+| Pattern | Example |
+|---|---|
+| `.env`, `.env.*` | `.env`, `.env.production` |
+| `.pem` | `server.pem` |
+| `.key` | `private.key` |
+| `credentials` (case-insensitive) | `~/.aws/credentials` |
+| `secrets/` or `secret/` | `secrets/api_key.txt` |
+| `/etc/passwd`, `/etc/shadow`, `/etc/sudoers` | `/etc/passwd` |
 
 ## Posture Scoring
 
@@ -133,7 +174,7 @@ Score starts at 100. Deductions per alert are capped per severity band:
 
 Grades: **A** (90–100) · **B** (75–89) · **C** (60–74) · **D** (45–59) · **F** (0–44)
 
-Normal development sessions (file reads/writes, shell commands) typically score B or A. Only sessions with force-pushes, curl-pipe-bash, or sensitive file access cause significant score drops.
+Normal development sessions (file reads/writes, shell commands) typically score B or A. Only sessions with force-pushes or sensitive file access cause significant score drops.
 
 ## Custom Policies
 
