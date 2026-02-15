@@ -54,6 +54,8 @@ Options:
   [SESSION_ID]               Drill into a specific session
 ```
 
+![Sessions](docs/screenshots/sessions.png)
+
 ### `agent-spm alerts`
 Policy violations, aggregated by rule by default.
 
@@ -95,7 +97,9 @@ agent-spm alerts test --rule NAME   # test a specific rule
 ```
 
 ### `agent-spm tools`
+### `agent-spm tools`
 Tool usage aggregation — what tools ran, how often, how many sessions.
+![Tools](docs/screenshots/tools.png)
 
 ### `agent-spm events`
 Raw event timeline with filtering.
@@ -107,6 +111,7 @@ Options:
   --elevated      Show only elevated/risky events
   --action TYPE   Filter by action type (shell_exec, file_read, file_write, tool_call)
   --limit N       Maximum number of sessions to scan
+  --limit N       Maximum number of events to display
 ```
 
 ### `agent-spm report`
@@ -178,6 +183,18 @@ Normal development sessions (file reads/writes, shell commands) typically score 
 
 ## Custom Policies
 
+Policy files are YAML and can be placed in `~/.claude/agent_spm/policies/`.
+Every `.yml`/`.yaml` file in that directory is loaded automatically alongside
+the built-in defaults. A custom rule whose `name` matches a default rule
+**replaces** it (use this to disable or tighten built-in rules).
+
+The interactive wizard is the easiest way to add a rule:
+
+```bash
+agent-spm alerts add          # interactive wizard — writes to ~/.claude/agent_spm/policies/custom.yml
+agent-spm alerts rules        # see all active rules and their source
+```
+
 ```yaml
 name: my-policy
 description: Custom rules for my team
@@ -203,7 +220,6 @@ rules:
 | Field | Type | Description |
 |---|---|---|
 | `action_types` | list | `tool_call`, `file_read`, `file_write`, `shell_exec` |
-| `elevated` | bool | Only match elevated/risky events |
 | `command_pattern` | regex | Matched against the shell command |
 | `path_pattern` | regex | Matched against the file path |
 | `out_of_directory` | bool | File outside session working directory |
