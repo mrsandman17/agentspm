@@ -15,7 +15,7 @@ DEFAULT_POLICY = Policy(
         PolicyRule(
             name="elevated-shell-command",
             description="Shell command flagged as elevated (sudo, chmod 777, chown)",
-            severity=Severity.MEDIUM,
+            severity=Severity.HIGH,
             match=RuleMatch(
                 action_types=[ActionType.SHELL_EXEC],
                 elevated=True,

@@ -144,7 +144,6 @@ class TestAlertsAdd:
                     "Test rule",  # description
                     "high",  # severity
                     "shell_exec",  # action types
-                    "any",  # elevated
                     "deploy.*prod",  # command pattern
                     "",  # path pattern (empty)
                     "y",  # confirm save
@@ -172,7 +171,6 @@ class TestAlertsAdd:
                     "Test rule",
                     "high",
                     "all",
-                    "any",
                     "",
                     "",
                     "n",  # cancel
@@ -200,7 +198,6 @@ class TestAlertsAdd:
                     "Test rule",
                     "high",
                     "all",
-                    "any",
                     "[invalid",  # bad regex for command pattern
                 ]
             )
@@ -390,29 +387,3 @@ class TestDisableDefaultRules:
         assert fp_rules[0].enabled is False
 
 
-class TestAlertsTest:
-    def test_dry_run_all_rules(self) -> None:
-        runner = CliRunner()
-        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
-            result = runner.invoke(alerts, ["test"])
-        assert result.exit_code == 0
-        assert "session" in result.output.lower()
-
-    def test_dry_run_specific_rule(self) -> None:
-        runner = CliRunner()
-        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
-            result = runner.invoke(alerts, ["test", "--rule", "elevated-shell-command"])
-        assert result.exit_code == 0
-
-    def test_dry_run_nonexistent_rule(self) -> None:
-        runner = CliRunner()
-        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[_session()]):
-            result = runner.invoke(alerts, ["test", "--rule", "nonexistent-rule"])
-        assert result.exit_code != 0
-
-    def test_no_sessions(self) -> None:
-        runner = CliRunner()
-        with patch("agent_spm.cli.alerts.scan_sessions", return_value=[]):
-            result = runner.invoke(alerts, ["test"])
-        assert result.exit_code == 0
-        assert "No sessions found" in result.output

@@ -79,7 +79,7 @@ def alerts(
 ) -> None:
     """Evaluate agent sessions against security policies and show violations.
 
-    Sub-commands: rules, add, remove, clear, default, enable, disable, test
+    Sub-commands: rules, add, remove, clear, default, enable, disable
     """
     if ctx.invoked_subcommand is not None:
         return
@@ -152,7 +152,7 @@ def _list_alerts_aggregated(
     table.add_column("Severity", width=10)
     table.add_column("Rule", width=28)
     table.add_column("Count", width=7, justify="right")
-    table.add_column("Example", min_width=30)
+    table.add_column("Latest command", min_width=30)
 
     for name in sorted_rules:
         sev_str = rule_severity[name].value
@@ -293,7 +293,8 @@ def add_cmd() -> None:
             "[dim]Description:[/dim]     Flag deployment commands to production\n"
             "[dim]Severity:[/dim]        critical\n"
             "[dim]Action types:[/dim]    shell_exec\n"
-            "[dim]Command pattern:[/dim] deploy.*prod\n\n"
+            "[dim]Command pattern:[/dim] deploy.*prod\n"
+            "[dim]Path pattern:[/dim]    (empty)\n\n"
             "This rule fires when a shell command matches the regex [bold]deploy.*prod[/bold].",
             title="[bold]Example Rule[/bold]",
             expand=False,
@@ -338,20 +339,6 @@ def add_cmd() -> None:
                 console.print(f"[red]Unknown action type: {part}[/red]")
                 raise SystemExit(1) from None
 
-    elevated_input = (
-        click.prompt(
-            "Match elevated events only? [yes / no / any]",
-            default="any",
-        )
-        .strip()
-        .lower()
-    )
-    elevated: bool | None = None
-    if elevated_input == "yes":
-        elevated = True
-    elif elevated_input == "no":
-        elevated = False
-
     console.print(
         "Command regex pattern — matches against shell commands.\n"
         '  Examples: [dim]"deploy.*prod"[/dim], [dim]"npm install -g"[/dim], '
@@ -383,7 +370,6 @@ def add_cmd() -> None:
         severity=severity,
         match=RuleMatch(
             action_types=action_types,
-            elevated=elevated,
             command_pattern=command_pattern,
             path_pattern=path_pattern,
         ),
@@ -467,101 +453,6 @@ def disable_cmd(name: str) -> None:
     else:
         console.print(f"[red]Rule '{name}' not found.[/red]")
         raise SystemExit(1)
-
-
-@alerts.command("test")
-@click.option(
-    "--rule",
-    "rule_name",
-    default=None,
-    help="Dry-run a specific rule by name. Default: test all rules.",
-)
-@click.option(
-    "--path",
-    type=click.Path(exists=True, path_type=Path),
-    default=None,
-    help="Override the default ~/.claude/projects/ directory.",
-)
-@click.option(
-    "--policy",
-    "policy_path",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Extra YAML policy file or directory.",
-)
-@click.option(
-    "--limit",
-    type=int,
-    default=None,
-    help="Maximum number of sessions to scan.",
-)
-def test_cmd(
-    rule_name: str | None,
-    path: Path | None,
-    policy_path: Path | None,
-    limit: int | None,
-) -> None:
-    """Dry-run rules against recent sessions — show what would fire."""
-    policies = _load_policies(policy_path)
-    sessions = scan_sessions(base_dir=path, limit=limit)
-
-    if not sessions:
-        console.print("[yellow]No sessions found.[/yellow]")
-        return
-
-    if rule_name is not None:
-        # Find the specific rule
-        target_rule = None
-        for policy in policies:
-            for rule in policy.rules:
-                if rule.name == rule_name:
-                    target_rule = rule
-                    break
-            if target_rule:
-                break
-
-        if target_rule is None:
-            console.print(f"[red]Rule '{rule_name}' not found.[/red]")
-            raise SystemExit(1)
-
-        from agent_spm.domain.models import Policy as PolicyModel
-
-        test_policies = [PolicyModel(name="test", description="", rules=[target_rule])]
-        n = len(sessions)
-        console.print(f"Testing rule [bold]'{rule_name}'[/bold] against {n} recent session(s)...\n")
-    else:
-        test_policies = policies
-        console.print(f"Testing all rules against {len(sessions)} recent session(s)...\n")
-
-    all_alerts = evaluate(sessions, test_policies)
-
-    if not all_alerts:
-        console.print("[green]No matches found.[/green]")
-        return
-
-    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
-    if rule_name is None:
-        table.add_column("Rule", width=26)
-    table.add_column("Session", width=14, style="dim")
-    table.add_column("Time", style="dim", width=8)
-    table.add_column("Target", min_width=40)
-
-    for alert in all_alerts:
-        session_display = alert.event.session_id[:12] + "…"
-        time_str = alert.event.timestamp.strftime("%H:%M:%S")
-        target = (
-            alert.event.target.command or alert.event.target.path or alert.event.target.tool_name
-        )
-        if target and len(target) > 60:
-            target = target[:57] + "..."
-
-        if rule_name is None:
-            table.add_row(alert.rule_name, session_display, time_str, target or "")
-        else:
-            table.add_row(session_display, time_str, target or "")
-
-    console.print(table)
-    console.print(f"\n[bold]{len(all_alerts)} match(es)[/bold] across {len(sessions)} session(s)")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
