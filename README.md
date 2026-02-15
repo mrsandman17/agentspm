@@ -2,9 +2,11 @@
 
 **Agent Security Posture Manager** — SSPM applied to AI agents.
 
+> **MVP** — experimental tool.
+
 > Your AI agent just ran 200 commands. Do you know what happened?
 
-`agent-spm` reads Claude Code session logs, evaluates them against security policies, and scores your posture. Passive observer only — it never modifies agent behavior.
+`agent-spm` reads Claude Code session logs, evaluates them against your easy to configure security policies, and scores your posture. Passive observer only — it never modifies agent behavior.
 
 ## Who This Is For
 
@@ -74,7 +76,6 @@ Sub-commands:
   default         Reset to built-in defaults — delete custom.yml
   enable NAME     Enable a disabled rule (works on default rules too)
   disable NAME    Disable a rule without deleting it (works on default rules too)
-  test            Dry-run rules against recent sessions
 ```
 
 **Disabling a noisy default rule:**
@@ -90,13 +91,6 @@ agent-spm alerts add
 # Shows an example rule, then walks you through each field
 ```
 
-**Dry-run rules without committing:**
-```bash
-agent-spm alerts test               # test all rules
-agent-spm alerts test --rule NAME   # test a specific rule
-```
-
-### `agent-spm tools`
 ### `agent-spm tools`
 Tool usage aggregation — what tools ran, how often, how many sessions.
 ![Tools](docs/screenshots/tools.png)
@@ -108,10 +102,8 @@ Raw event timeline with filtering.
 Options:
   --path PATH     Override the default ~/.claude/projects/ directory
   --session ID    Filter to a single session
-  --elevated      Show only elevated/risky events
   --action TYPE   Filter by action type (shell_exec, file_read, file_write, tool_call)
   --limit N       Maximum number of sessions to scan
-  --limit N       Maximum number of events to display
 ```
 
 ### `agent-spm report`
@@ -134,7 +126,7 @@ The built-in policy catches common high-risk patterns:
 |---|---|---|
 | `sensitive-file-access` | HIGH | Reads or writes `.env`, `.pem`, `.key`, credentials, `secrets/`, `/etc/passwd` |
 | `force-push` | HIGH | `git push --force` — can permanently destroy remote history |
-| `elevated-shell-command` | MEDIUM | `sudo`, `chmod 777`, `chown` and other elevated shell commands |
+| `elevated-shell-command` | HIGH | `sudo`, `chmod 777`, `chown` and other elevated shell commands |
 | `destructive-remove` | MEDIUM | `rm -rf` — risk of permanent data loss |
 
 Any rule can be disabled if it's too noisy for your workflow (`agent-spm alerts disable <name>`).
@@ -220,6 +212,7 @@ rules:
 | Field | Type | Description |
 |---|---|---|
 | `action_types` | list | `tool_call`, `file_read`, `file_write`, `shell_exec` |
+| `elevated` | bool | Only match elevated/risky events |
 | `command_pattern` | regex | Matched against the shell command |
 | `path_pattern` | regex | Matched against the file path |
 | `out_of_directory` | bool | File outside session working directory |
