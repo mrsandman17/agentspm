@@ -22,6 +22,7 @@ from agent_spm.policies.writer import (
     save_custom_rule,
     set_rule_enabled,
 )
+from agent_spm.security.redaction import safe_target_text
 
 console = Console()
 
@@ -58,7 +59,7 @@ _SEVERITY_ORDER = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.L
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of sessions to scan.",
 )
@@ -128,19 +129,11 @@ def _list_alerts_aggregated(
 
     rule_counts: dict[str, int] = defaultdict(int)
     rule_severity: dict[str, Severity] = {}
-    rule_example: dict[str, str] = {}
 
     for alert in filtered:
         name = alert.rule_name
         rule_counts[name] += 1
         rule_severity[name] = alert.severity
-        if name not in rule_example:
-            target = (
-                alert.event.target.command
-                or alert.event.target.path
-                or alert.event.target.tool_name
-            )
-            rule_example[name] = (target or "")[:55]
 
     # Sort by severity (worst first), then count descending
     sorted_rules = sorted(
@@ -152,13 +145,12 @@ def _list_alerts_aggregated(
     table.add_column("Severity", width=10)
     table.add_column("Rule", width=28)
     table.add_column("Count", width=7, justify="right")
-    table.add_column("Latest command", min_width=30)
 
     for name in sorted_rules:
         sev_str = rule_severity[name].value
         color = _SEVERITY_COLORS.get(sev_str, "white")
         sev_display = f"[{color}]{sev_str.upper()}[/{color}]"
-        table.add_row(sev_display, name, str(rule_counts[name]), rule_example[name])
+        table.add_row(sev_display, name, str(rule_counts[name]))
 
     console.print(table)
     console.print("[dim]Use --detail to see individual violations.[/dim]\n")
@@ -211,9 +203,7 @@ def _list_alerts(
         session_display = alert.event.session_id[:12] + "…"
         time_str = alert.event.timestamp.strftime("%H:%M:%S")
 
-        target = (
-            alert.event.target.command or alert.event.target.path or alert.event.target.tool_name
-        )
+        target = safe_target_text(alert.event.target)
         if target and len(target) > 60:
             target = target[:57] + "..."
 

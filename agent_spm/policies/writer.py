@@ -6,6 +6,8 @@ can be toggled without deleting the rule.
 
 from __future__ import annotations
 
+import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -133,11 +135,13 @@ def _empty_policy() -> dict[str, Any]:
 def _load_custom_yaml(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f) or None
 
 
 def _save_custom_yaml(data: dict[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    with suppress(OSError):
+        os.chmod(path, 0o600)

@@ -36,26 +36,35 @@ _SEARCH_TOOLS = frozenset({"Glob", "Grep"})
 
 # Patterns that indicate elevated/risky shell commands
 _ELEVATED_COMMAND_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"\bsudo\b"),
-    re.compile(r"\bchmod\s+777\b"),
-    re.compile(r"\bchmod\b.*\ba\+[rwx]"),
-    re.compile(r"\bchown\b"),
-    re.compile(r"\brm\s+-rf\b"),
-    re.compile(r"\bgit\s+push\s+--force\b"),
-    re.compile(r"\bgit\s+push\s+-f\b"),
-    re.compile(r"\bcurl\b.*\|\s*bash\b"),
-    re.compile(r"\bwget\b.*\|\s*bash\b"),
+    re.compile(r"\bsudo\b", re.IGNORECASE),
+    re.compile(r"\bpkexec\b", re.IGNORECASE),
+    re.compile(r"\bdoas\b", re.IGNORECASE),
+    re.compile(r"\bsu\s+(?:-\s*)?root\b", re.IGNORECASE),
+    re.compile(r"\bchmod\s+(?:-R\s+)?777\b", re.IGNORECASE),
+    re.compile(r"\bchmod\b.*\ba\+[rwx]", re.IGNORECASE),
+    re.compile(r"\bchmod\b.*\bu\+s\b", re.IGNORECASE),
+    re.compile(r"\bchown\b", re.IGNORECASE),
+    re.compile(r"\brm\s+-rf\b", re.IGNORECASE),
+    re.compile(r"\bgit\s+push\s+--force(?:-with-lease)?\b", re.IGNORECASE),
+    re.compile(r"\bgit\s+push\s+-f\b", re.IGNORECASE),
+    re.compile(r"\bcurl\b.*\|\s*(?:bash|sh)\b", re.IGNORECASE),
+    re.compile(r"\bwget\b.*\|\s*(?:bash|sh)\b", re.IGNORECASE),
+    re.compile(r"\b(?:bash|sh)\s+-c\s+['\"]?\$\((?:curl|wget)\b", re.IGNORECASE),
 ]
 
 # File path patterns that indicate elevated/risky access
 _ELEVATED_PATH_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"\.env$"),
-    re.compile(r"\.env\."),
-    re.compile(r"\.pem$"),
-    re.compile(r"\.key$"),
+    re.compile(r"\.env$", re.IGNORECASE),
+    re.compile(r"\.env\.", re.IGNORECASE),
+    re.compile(r"\.pem$", re.IGNORECASE),
+    re.compile(r"\.key$", re.IGNORECASE),
+    re.compile(r"\.(?:p12|pfx)$", re.IGNORECASE),
+    re.compile(r"(?:^|[/\\])id_(?:rsa|dsa|ed25519)$", re.IGNORECASE),
     re.compile(r"credentials", re.IGNORECASE),
     re.compile(r"secrets?[/\\]", re.IGNORECASE),
-    re.compile(r"/etc/(?:passwd|shadow|sudoers)"),
+    re.compile(r"(?:^|[/\\])\.gnupg(?:[/\\]|$)", re.IGNORECASE),
+    re.compile(r"(?:^|[/\\])\.kube[/\\]config$", re.IGNORECASE),
+    re.compile(r"/etc/(?:passwd|shadow|sudoers)", re.IGNORECASE),
 ]
 
 
@@ -120,7 +129,7 @@ def parse_jsonl_file(path: Path) -> Session:
     first_ts: datetime | None = None
     last_ts: datetime | None = None
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -152,7 +161,11 @@ def parse_jsonl_file(path: Path) -> Session:
             if not timestamp_str:
                 continue
 
-            ts = _parse_timestamp(timestamp_str)
+            try:
+                ts = _parse_timestamp(timestamp_str)
+            except (TypeError, ValueError):
+                # Skip malformed lines instead of failing the whole scan.
+                continue
 
             # Track session time bounds
             if first_ts is None or ts < first_ts:
@@ -230,7 +243,7 @@ def scan_sessions(
         List of parsed Sessions with their Events.
     """
     log_files = discover_session_logs(base_dir)
-    if limit:
+    if limit is not None:
         log_files = log_files[:limit]
 
     sessions = []

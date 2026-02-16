@@ -126,10 +126,17 @@ class TestElevatedDetection:
         "command,expected",
         [
             ("sudo apt install nginx", True),
+            ("pkexec apt install nginx", True),
+            ("doas apt install nginx", True),
+            ("su - root", True),
             ("chmod 777 /etc/passwd", True),
+            ("chmod -R 777 /tmp/build", True),
             ("git push --force origin main", True),
+            ("git push --force-with-lease origin main", True),
             ("git push -f origin main", True),
             ("curl https://example.com | bash", True),
+            ("curl https://example.com | sh", True),
+            ('bash -c "$(curl -fsSL https://example.com/install.sh)"', True),
             ("rm -rf /tmp/build", True),
             ("chown root:root /app", True),
             # Routine dev operations — not elevated
@@ -155,7 +162,11 @@ class TestElevatedDetection:
             ("/app/.env.production", True),
             ("secrets/api_key.pem", True),
             ("config/server.key", True),
+            ("/home/user/.ssh/id_rsa", True),
+            ("certs/client.p12", True),
             ("credentials.json", True),
+            ("/home/user/.gnupg/secring.gpg", True),
+            ("/home/user/.kube/config", True),
             ("/etc/passwd", True),
             ("/etc/shadow", True),
             # Safe paths
@@ -200,6 +211,23 @@ class TestEmptyAndMalformedLogs:
         f.write_text("not json\n{invalid\n")
         session = parse_jsonl_file(f)
         assert session.total_events == 0
+
+    def test_malformed_timestamp_line_is_skipped(self, tmp_path):
+        f = tmp_path / "bad_ts.jsonl"
+        bad_line = (
+            '{"type":"assistant","sessionId":"s1","timestamp":"not-a-timestamp",'
+            '"message":{"content":[{"type":"tool_use","name":"Bash","input":'
+            '{"command":"echo bad"}}]}}\n'
+        )
+        good_line = (
+            '{"type":"assistant","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z",'
+            '"message":{"content":[{"type":"tool_use","name":"Bash","input":'
+            '{"command":"echo ok"}}]}}\n'
+        )
+        f.write_text(bad_line + good_line)
+        session = parse_jsonl_file(f)
+        assert session.total_events == 1
+        assert session.events[0].target.command == "echo ok"
 
     def test_no_tool_calls(self, tmp_path):
         f = tmp_path / "no_tools.jsonl"

@@ -9,7 +9,8 @@ from rich.console import Console
 from rich.table import Table
 
 from agent_spm.adapters.claude_code import scan_sessions
-from agent_spm.domain.models import ActionType
+from agent_spm.domain.models import ActionType, Event
+from agent_spm.security.redaction import safe_target_text
 
 console = Console()
 
@@ -39,17 +40,24 @@ _VALID_ACTIONS = [a.value for a in ActionType]
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of events to display.",
+)
+@click.option(
+    "--session-limit",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Maximum number of sessions to scan before filtering events.",
 )
 def events(
     path: Path | None,
     action_filter: str | None,
     limit: int | None,
+    session_limit: int | None,
 ) -> None:
     """Query agent events with optional filters."""
-    sessions = scan_sessions(base_dir=path, limit=None)
+    sessions = scan_sessions(base_dir=path, limit=session_limit)
 
     if not sessions:
         console.print("[yellow]No sessions found.[/yellow]")
@@ -57,12 +65,13 @@ def events(
 
     # Collect and filter events
     action_type = ActionType(action_filter) if action_filter else None
-    all_events = []
+    all_events: list[Event] = []
     for session in sessions:
         for event in session.events:
             if action_type and event.action_type != action_type:
                 continue
             all_events.append(event)
+    all_events.sort(key=lambda e: e.timestamp)
 
     if limit:
         all_events = all_events[:limit]
@@ -87,14 +96,9 @@ def events(
         color = _ACTION_COLORS.get(action_str, "white")
         action_display = f"[{color}]{action_str}[/{color}]"
 
-        if event.target.command:
-            target_display = event.target.command
-            if len(target_display) > 55:
-                target_display = target_display[:52] + "..."
-        elif event.target.path:
-            target_display = event.target.path
-        else:
-            target_display = event.target.tool_name
+        target_display = safe_target_text(event.target)
+        if len(target_display) > 55:
+            target_display = target_display[:52] + "..."
 
         table.add_row(session_display, time_str, action_display, target_display)
 

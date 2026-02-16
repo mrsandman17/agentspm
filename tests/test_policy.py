@@ -120,6 +120,10 @@ class TestRuleMatch:
             _event(action_type=ActionType.FILE_READ, path="/app/main.py", command=None)
         )
 
+    def test_invalid_regex_does_not_crash_runtime_match(self) -> None:
+        match = RuleMatch(command_pattern="(")
+        assert not match.matches(_event(command="echo hi"))
+
 
 # ─── Policy YAML loading ──────────────────────────────────────────────────────
 
@@ -194,6 +198,23 @@ class TestLoadPolicy:
         rule = policy.rules[0]
         assert rule.match.command_pattern == "git push .*(--force|-f)"
         assert rule.severity == Severity.CRITICAL
+
+    def test_load_policy_with_invalid_command_pattern_raises(self, tmp_path: Path) -> None:
+        f = tmp_path / "policy.yml"
+        f.write_text(
+            textwrap.dedent("""
+            name: test-policy
+            rules:
+              - name: bad-regex
+                description: Bad regex test
+                severity: high
+                match:
+                  action_types: [shell_exec]
+                  command_pattern: "("
+        """)
+        )
+        with pytest.raises(ValueError, match="Invalid 'command_pattern' regex"):
+            load_policy(f)
 
     def test_load_nonexistent_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):

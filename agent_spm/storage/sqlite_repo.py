@@ -9,7 +9,9 @@ The raw dict is NOT stored — only structured fields are persisted.
 
 from __future__ import annotations
 
+import os
 import sqlite3
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -64,8 +66,9 @@ class SQLiteSessionRepository:
 
     def __init__(self, db_path: Path | None = None) -> None:
         self._db_path = db_path or _DEFAULT_DB
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._db_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._init_db()
+        self._set_private_permissions()
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._db_path)
@@ -76,6 +79,13 @@ class SQLiteSessionRepository:
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.executescript(_DDL)
+
+    def _set_private_permissions(self) -> None:
+        """Best-effort tightening of local database file permissions."""
+        if not self._db_path.exists():
+            return
+        with suppress(OSError):
+            os.chmod(self._db_path, 0o600)
 
     def save_session(self, session: Session) -> None:
         """Persist session and its events. Idempotent on session_id."""

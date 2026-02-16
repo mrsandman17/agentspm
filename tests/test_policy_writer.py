@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import pytest
 import yaml
 
 from agent_spm.domain.models import ActionType, PolicyRule, RuleMatch, Severity
@@ -122,6 +124,14 @@ class TestSaveCustomRule:
         path = tmp_path / "custom.yml"
         result = save_custom_rule(_rule(), path=path)
         assert result == path
+
+    def test_sets_private_file_permissions(self, tmp_path: Path) -> None:
+        if os.name != "posix":
+            pytest.skip("POSIX permission bits not available")
+        path = tmp_path / "custom.yml"
+        save_custom_rule(_rule(), path=path)
+        mode = path.stat().st_mode & 0o777
+        assert mode == 0o600
 
 
 class TestRemoveCustomRule:

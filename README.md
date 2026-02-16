@@ -101,9 +101,9 @@ Raw event timeline with filtering.
 ```
 Options:
   --path PATH     Override the default ~/.claude/projects/ directory
-  --session ID    Filter to a single session
   --action TYPE   Filter by action type (shell_exec, file_read, file_write, tool_call)
-  --limit N       Maximum number of sessions to scan
+  --limit N       Maximum number of events to display
+  --session-limit N  Maximum number of sessions to scan before filtering events
 ```
 
 ### `agent-spm report`
@@ -118,34 +118,38 @@ Options:
   --output PATH   Write to file instead of printing to console
 ```
 
+Sensitive command arguments and sensitive file paths are redacted in CLI and report output.
+
 ## Default Security Rules
 
 The built-in policy catches common high-risk patterns:
 
 | Rule | Severity | What It Catches |
 |---|---|---|
-| `sensitive-file-access` | HIGH | Reads or writes `.env`, `.pem`, `.key`, credentials, `secrets/`, `/etc/passwd` |
+| `sensitive-file-access` | HIGH | Reads or writes `.env`, `.pem`, `.key`, `.p12`, `.pfx`, SSH keys, credentials, `secrets/`, `.gnupg`, `.kube/config`, `/etc/passwd` |
 | `force-push` | HIGH | `git push --force` — can permanently destroy remote history |
-| `elevated-shell-command` | HIGH | `sudo`, `chmod 777`, `chown` and other elevated shell commands |
+| `elevated-shell-command` | HIGH | `sudo`/`pkexec`/`doas`, risky `chmod`, `chown`, `curl|sh`, and related elevated shell commands |
 | `destructive-remove` | MEDIUM | `rm -rf` — risk of permanent data loss |
 
 Any rule can be disabled if it's too noisy for your workflow (`agent-spm alerts disable <name>`).
 
 ## What Counts as Elevated
 
-Events are flagged as elevated based on the command or file path. Use `--elevated` in `events` or `alerts` to filter to these only.
+Events are flagged as elevated based on command and file-path heuristics. Elevated status is shown in `sessions` and included in posture/report scoring.
 
 **Shell commands:**
 
 | Pattern | Example |
 |---|---|
 | `sudo` | `sudo apt install ...` |
+| `pkexec`, `doas`, `su root` | `pkexec apt install ...` |
 | `chmod 777` or `chmod a+rwx` | `chmod 777 script.sh` |
+| `chmod -R 777` or `chmod ... u+s` | `chmod -R 777 build/` |
 | `chown` | `chown root file` |
 | `rm -rf` | `rm -rf ./dist` |
-| `git push --force` / `-f` | `git push --force origin main` |
-| `curl ... \| bash` | `curl https://example.com/install.sh \| bash` |
-| `wget ... \| bash` | `wget -O- https://example.com/install.sh \| bash` |
+| `git push --force`, `--force-with-lease`, `-f` | `git push --force origin main` |
+| `curl/wget ... \| bash|sh` | `curl https://example.com/install.sh \| sh` |
+| `bash -c "$(curl ...)"` | `bash -c "$(curl -fsSL ...)"` |
 
 **File paths (reads or writes):**
 
@@ -154,8 +158,11 @@ Events are flagged as elevated based on the command or file path. Use `--elevate
 | `.env`, `.env.*` | `.env`, `.env.production` |
 | `.pem` | `server.pem` |
 | `.key` | `private.key` |
+| `.p12`, `.pfx` | `client.p12` |
+| SSH private keys | `~/.ssh/id_rsa` |
 | `credentials` (case-insensitive) | `~/.aws/credentials` |
 | `secrets/` or `secret/` | `secrets/api_key.txt` |
+| `.gnupg` or `.kube/config` | `~/.gnupg/secring.gpg` |
 | `/etc/passwd`, `/etc/shadow`, `/etc/sudoers` | `/etc/passwd` |
 
 ## Posture Scoring

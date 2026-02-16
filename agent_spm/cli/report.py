@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from contextlib import suppress
 from pathlib import Path
 
 import click
@@ -33,7 +35,7 @@ console = Console()
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of sessions to scan.",
 )
@@ -46,7 +48,7 @@ console = Console()
 )
 @click.option(
     "--top",
-    type=int,
+    type=click.IntRange(min=1),
     default=10,
     show_default=True,
     help="Maximum number of top violations and elevated events to include.",
@@ -72,6 +74,8 @@ def report(
 
     if output_path is not None:
         output_path.write_text(md_text, encoding="utf-8")
+        with suppress(OSError):
+            os.chmod(output_path, 0o600)
         console.print(f"[green]Report written to {output_path}[/green]")
     else:
         console.print(Markdown(md_text))
