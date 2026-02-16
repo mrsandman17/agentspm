@@ -385,5 +385,3 @@ class TestDisableDefaultRules:
         fp_rules = [r for r in all_rules if r.name == "force-push"]
         assert len(fp_rules) == 1
         assert fp_rules[0].enabled is False
-
-
