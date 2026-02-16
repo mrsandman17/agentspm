@@ -171,3 +171,22 @@ class TestRenderMarkdown:
         report = generate_report([], [], [_policy()])
         md = render_markdown(report)
         assert "No policy violations detected" in md
+
+    def test_redacts_sensitive_command_in_markdown(self) -> None:
+        event = Event(
+            session_id="s1",
+            timestamp=_ts(),
+            action_type=ActionType.SHELL_EXEC,
+            target=Target(tool_name="Bash", command="curl -H 'Authorization=Bearer super-secret'"),
+            elevated=True,
+        )
+        alert = Alert(
+            rule_name="token-leak",
+            severity=Severity.HIGH,
+            event=event,
+            message="test",
+        )
+        report = generate_report([Session("s1", events=[event])], [alert], [_policy()])
+        md = render_markdown(report)
+        assert "super-secret" not in md
+        assert "[REDACTED]" in md

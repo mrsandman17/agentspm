@@ -16,7 +16,9 @@ from typing import Any
 # Prefixes for paths that are commonly accessed outside cwd but are benign
 _OOD_BENIGN_PREFIXES: tuple[str, ...] = (
     "/tmp/",
+    "/private/tmp/",
     "/var/tmp/",
+    "/private/var/tmp/",
 )
 
 # Home-relative suffixes for benign paths (appended to expanduser("~"))
@@ -32,13 +34,33 @@ _OOD_BENIGN_HOME_SUFFIXES: tuple[str, ...] = (
 )
 
 
+_MAX_REGEX_TARGET_LEN = 4096
+
+
+def _safe_regex_search(pattern: str, text: str) -> bool:
+    """Best-effort regex search that avoids runtime crashes from bad patterns."""
+    try:
+        return re.search(pattern, text[:_MAX_REGEX_TARGET_LEN]) is not None
+    except re.error:
+        return False
+
+
+def _canonicalize_path(path: str, cwd: str | None = None) -> str:
+    """Return a normalized absolute path for boundary checks."""
+    expanded = os.path.expanduser(path)
+    if not os.path.isabs(expanded) and cwd is not None:
+        expanded = os.path.join(cwd, expanded)
+    return os.path.realpath(os.path.normpath(expanded))
+
+
 def _is_benign_ood_path(path: str) -> bool:
     """Return True if the path is a commonly-accessed benign location outside cwd."""
+    normalized = _canonicalize_path(path)
     for prefix in _OOD_BENIGN_PREFIXES:
-        if path.startswith(prefix):
+        if normalized.startswith(prefix):
             return True
-    home = os.path.expanduser("~")
-    return any(path.startswith(home + suffix) for suffix in _OOD_BENIGN_HOME_SUFFIXES)
+    home = os.path.realpath(os.path.expanduser("~"))
+    return any(normalized.startswith(home + suffix) for suffix in _OOD_BENIGN_HOME_SUFFIXES)
 
 
 class ActionType(Enum):
@@ -152,19 +174,22 @@ class RuleMatch:
         if self.command_pattern is not None:
             if not event.target.command:
                 return False
-            if not re.search(self.command_pattern, event.target.command):
+            if not _safe_regex_search(self.command_pattern, event.target.command):
                 return False
         if self.path_pattern is not None:
             if not event.target.path:
                 return False
-            if not re.search(self.path_pattern, event.target.path):
+            if not _safe_regex_search(self.path_pattern, event.target.path):
                 return False
         if self.out_of_directory is not None:
             if not event.target.path or not session or not session.cwd:
                 return False
-            path = event.target.path
-            cwd = session.cwd.rstrip("/")
-            is_outside = not (path == cwd or path.startswith(cwd + "/"))
+            cwd = _canonicalize_path(session.cwd)
+            path = _canonicalize_path(event.target.path, cwd=cwd)
+            try:
+                is_outside = os.path.commonpath([cwd, path]) != cwd
+            except ValueError:
+                is_outside = True
             if is_outside and _is_benign_ood_path(path):
                 return False
             if is_outside != self.out_of_directory:

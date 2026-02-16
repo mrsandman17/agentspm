@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 from agent_spm.domain.models import Alert, Event, Policy, PostureScore, Session
 from agent_spm.engine.posture import calculate_posture
+from agent_spm.security.redaction import safe_target_text
 
 
 @dataclass(frozen=True)
@@ -101,8 +102,7 @@ def render_markdown(report: Report) -> str:
         lines.append("| Severity | Rule | Target |")
         lines.append("|---|---|---|")
         for alert in report.top_alerts:
-            t = alert.event.target
-            target = t.command or t.path or t.tool_name
+            target = safe_target_text(alert.event.target)
             lines.append(f"| {alert.severity.value.upper()} | {alert.rule_name} | `{target}` |")
     lines.append("")
 
@@ -113,7 +113,7 @@ def render_markdown(report: Report) -> str:
         lines.append("| Session | Time | Tool | Command/Path |")
         lines.append("|---|---|---|---|")
         for event in report.elevated_events:
-            target = event.target.command or event.target.path or event.target.tool_name
+            target = safe_target_text(event.target)
             ts = event.timestamp.strftime("%Y-%m-%d %H:%M")
             lines.append(f"| {event.session_id} | {ts} | {event.target.tool_name} | `{target}` |")
         lines.append("")

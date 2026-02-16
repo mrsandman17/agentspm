@@ -13,8 +13,7 @@ from agent_spm.adapters.claude_code import scan_sessions
 from agent_spm.domain.models import Policy, Severity
 from agent_spm.engine.evaluator import evaluate
 from agent_spm.engine.posture import calculate_posture
-from agent_spm.policies.defaults import DEFAULT_POLICY
-from agent_spm.policies.loader import load_policy, load_policy_dir
+from agent_spm.policies.loader import load_all_policies
 
 console = Console()
 
@@ -38,7 +37,7 @@ _SEVERITY_COLORS = {"low": "dim", "medium": "yellow", "high": "red", "critical":
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of sessions to scan.",
 )
@@ -94,9 +93,4 @@ def posture(path: Path | None, policy_path: Path | None, limit: int | None) -> N
 
 
 def _load_policies(policy_path: Path | None) -> list[Policy]:
-    if policy_path is None:
-        return [DEFAULT_POLICY]
-    if policy_path.is_dir():
-        loaded = load_policy_dir(policy_path)
-        return loaded if loaded else [DEFAULT_POLICY]
-    return [load_policy(policy_path)]
+    return load_all_policies(user_policy_path=policy_path)

@@ -30,7 +30,7 @@ _ACTION_COLORS = {
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of sessions to scan.",
 )

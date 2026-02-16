@@ -21,6 +21,7 @@ Schema:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ import yaml
 from agent_spm.domain.models import ActionType, Policy, PolicyRule, RuleMatch, Severity
 
 CUSTOM_POLICY_DIR = Path.home() / ".claude" / "agent_spm" / "policies"
+_MAX_PATTERN_LENGTH = 512
 
 
 def load_policy(path: Path) -> Policy:
@@ -41,7 +43,7 @@ def load_policy(path: Path) -> Policy:
     if not path.exists():
         raise FileNotFoundError(f"Policy file not found: {path}")
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
     return _parse_policy(data, source=str(path))
@@ -172,11 +174,34 @@ def _parse_match(data: dict[str, Any], rule_name: str = "") -> RuleMatch:
 
     elevated = data.get("elevated")  # None if not specified
     out_of_directory = data.get("out_of_directory")  # None if not specified
+    command_pattern = data.get("command_pattern")
+    path_pattern = data.get("path_pattern")
+    _validate_regex(command_pattern, field_name="command_pattern", rule_name=rule_name)
+    _validate_regex(path_pattern, field_name="path_pattern", rule_name=rule_name)
 
     return RuleMatch(
         action_types=action_types,
         elevated=elevated,
-        command_pattern=data.get("command_pattern"),
-        path_pattern=data.get("path_pattern"),
+        command_pattern=command_pattern,
+        path_pattern=path_pattern,
         out_of_directory=out_of_directory,
     )
+
+
+def _validate_regex(pattern: Any, field_name: str, rule_name: str) -> None:
+    if pattern is None:
+        return
+    if not isinstance(pattern, str):
+        pattern_type = type(pattern).__name__
+        raise ValueError(
+            f"Invalid {field_name!r} in rule '{rule_name}': expected string, got {pattern_type}"
+        )
+    if len(pattern) > _MAX_PATTERN_LENGTH:
+        raise ValueError(
+            f"Invalid {field_name!r} in rule '{rule_name}': "
+            f"regex exceeds {_MAX_PATTERN_LENGTH} characters"
+        )
+    try:
+        re.compile(pattern)
+    except re.error as err:
+        raise ValueError(f"Invalid {field_name!r} regex in rule '{rule_name}': {err}") from err

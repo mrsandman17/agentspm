@@ -17,6 +17,7 @@ from agent_spm.engine.evaluator import evaluate
 from agent_spm.engine.inventory import build_inventory
 from agent_spm.engine.posture import calculate_posture
 from agent_spm.policies.loader import load_all_policies
+from agent_spm.security.redaction import safe_target_text
 
 console = Console()
 
@@ -47,7 +48,7 @@ _ACTION_COLORS = {
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="Maximum number of sessions to scan.",
 )
@@ -217,14 +218,9 @@ def _render_session_detail(
             color = _ACTION_COLORS.get(action_str, "white")
             action_display = f"[{color}]{action_str}[/{color}]"
 
-            if event.target.command:
-                target_display = event.target.command[:60] + (
-                    "..." if len(event.target.command) > 60 else ""
-                )
-            elif event.target.path:
-                target_display = event.target.path
-            else:
-                target_display = event.target.tool_name
+            target_display = safe_target_text(event.target)
+            if len(target_display) > 60:
+                target_display = target_display[:57] + "..."
 
             elevated_display = "[bold red]ELEVATED[/bold red]" if event.elevated else ""
             ev_table.add_row(time_str, action_display, target_display, elevated_display)
@@ -253,11 +249,7 @@ def _render_session_detail(
             color = _SEVERITY_COLORS.get(sev_str, "white")
             sev_display = f"[{color}]{sev_str.upper()}[/{color}]"
             time_str = alert.event.timestamp.strftime("%H:%M:%S")
-            target = (
-                alert.event.target.command
-                or alert.event.target.path
-                or alert.event.target.tool_name
-            )
+            target = safe_target_text(alert.event.target)
             if target and len(target) > 60:
                 target = target[:57] + "..."
             al_table.add_row(sev_display, alert.rule_name, time_str, target or "")

@@ -100,6 +100,11 @@ class TestOutOfDirectoryMatch:
         session = _session(cwd="/home/user/project")
         assert _RULE.matches(event, session=session) is True
 
+    def test_path_traversal_is_outside(self) -> None:
+        event = _file_event("/home/user/project/../secrets.txt")
+        session = _session(cwd="/home/user/project")
+        assert _RULE.matches(event, session=session) is True
+
 
 class TestBenignOodPaths:
     """Commonly-accessed paths outside cwd that should not trigger the rule."""

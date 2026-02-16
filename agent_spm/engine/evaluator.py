@@ -7,6 +7,7 @@ what it should have done, surfacing violations as Alerts.
 from __future__ import annotations
 
 from agent_spm.domain.models import Alert, Event, Policy, PolicyRule, Session
+from agent_spm.security.redaction import safe_target_text
 
 
 def evaluate(sessions: list[Session], policies: list[Policy]) -> list[Alert]:
@@ -31,7 +32,7 @@ def evaluate(sessions: list[Session], policies: list[Policy]) -> list[Alert]:
 
 
 def _make_alert(rule: PolicyRule, event: Event) -> Alert:
-    target = event.target.command or event.target.path or event.target.tool_name
+    target = safe_target_text(event.target)
     message = f"[{rule.name}] {rule.description} — {target}"
     return Alert(
         rule_name=rule.name,

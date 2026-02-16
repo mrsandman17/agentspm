@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -51,6 +52,12 @@ def repo(tmp_path: Path) -> SQLiteSessionRepository:
 
 
 class TestSaveAndRetrieve:
+    def test_db_file_permissions_are_private(self, repo: SQLiteSessionRepository) -> None:
+        if os.name != "posix":
+            pytest.skip("POSIX permission bits not available")
+        mode = repo._db_path.stat().st_mode & 0o777  # noqa: SLF001
+        assert mode == 0o600
+
     def test_save_and_get_session(self, repo: SQLiteSessionRepository) -> None:
         session = _make_session()
         repo.save_session(session)
