@@ -56,8 +56,6 @@ Options:
   [SESSION_ID]               Drill into a specific session
 ```
 
-![Sessions](docs/screenshots/sessions.png)
-
 ### `agent-spm alerts`
 Policy violations, aggregated by rule by default.
 
@@ -93,7 +91,6 @@ agent-spm alerts add
 
 ### `agent-spm tools`
 Tool usage aggregation — what tools ran, how often, how many sessions.
-![Tools](docs/screenshots/tools.png)
 
 ### `agent-spm events`
 Raw event timeline with filtering.
